@@ -152,6 +152,7 @@ function clearPending() {
 function renderAll() { renderLeft(); renderGrid(); renderDetails(); renderPending(); renderInfo(); renderButtons(); }
 
 function renderLeft() {
+  document.body.classList.toggle('view-satis', S.view === 'satis');
   $$('.tab').forEach((b) => b.classList.toggle('active', b.dataset.view === S.view));
   const el = $('#leftList');
   if (S.view === 'satis') {
@@ -159,11 +160,11 @@ function renderLeft() {
     return;
   }
   const count = (fn) => S.orders.filter(fn).length;
-  const badge = (n) => (n ? `<span class="badge">${n}</span>` : '');
+  const badge = () => '';
   el.innerHTML = S.boot.sections.map((s) => {
     const n = count((o) => o.type === 'masa' && tableById(o.table_id)?.section_id === s.id);
     return `<button class="left-item ${S.leftMode === 'section' && s.id === S.sectionId ? 'active' : ''}" data-section="${s.id}">${esc(s.name)}${badge(n)}</button>`;
-  }).join('') + `<div class="left-sep"></div>
+  }).join('') + `
     <button class="left-item ${S.leftMode === 'paket' ? 'active' : ''}" data-mode="paket">Paket Servis${badge(count((o) => o.type === 'paket'))}</button>
     <button class="left-item ${S.leftMode === 'bekleyen' ? 'active' : ''}" data-mode="bekleyen">Bekleyen${badge(count((o) => o.type === 'bekleyen'))}</button>
     <button class="left-item ${S.leftMode === 'cagri' ? 'active' : ''}" data-mode="cagri">Çağrı Merkezi</button>
@@ -199,12 +200,10 @@ function renderTables(grid) {
     let inner = `<div class="t-name">${esc(t.name)}</div>`;
     if (o) {
       cls.push('busy');
-      if (o.paid > 0) cls.push('partial');
       if (longWait && now - (o.last_order_at || o.opened_at) > longWait * 60000) cls.push('longwait');
       if (o.alarm_at && o.alarm_at <= now) cls.push('alarm');
       inner += `<div class="t-total">${money(o.remaining)} TL</div>
-        <div class="t-meta">${duration(now - o.opened_at)}${o.guests ? ' · ' + o.guests + '👤' : ''}</div>
-        <div class="t-icons">${o.k_ready ? '🔔' : o.k_wait ? '🍳' : ''}${o.alarm_at && o.alarm_at > now ? '⏰' : ''}</div>`;
+`;
     }
     if (S.cur?.tableId === t.id) cls.push('selected');
     return `<button class="${cls.join(' ')}" data-table="${t.id}">${inner}</button>`;
@@ -421,7 +420,6 @@ async function save() {
     S.order = r.order;
     for (const t of r.browser_tickets || []) printHtml(kitchenHtml(r.order, t.items, S.boot.me.name, t.title));
     clearPending();
-    toast('Kaydedildi: ' + r.order.label, 'ok', 1800);
     if (setting('go_tables_after_save') === '1') S.view = 'masa';
     await refreshState();
   } catch (e) { err(e); } finally { btn.disabled = false; }

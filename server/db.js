@@ -44,7 +44,7 @@ export const DEFAULT_SETTINGS = {
   product_cols: '5',
   go_tables_after_save: '1',
   table_click_to_sales: '1',
-  long_wait_minutes: '45',
+  long_wait_minutes: '0',
   print_receipt_after_payment: '0',
   kitchen_ticket: '1',
   receipt_printer: '',
@@ -126,8 +126,6 @@ function seed(db) {
   const t = db.prepare('INSERT INTO tables(section_id,name,sort) VALUES(?,?,?)');
   const salon = s.run('Salon', 1).lastInsertRowid;
   for (let i = 1; i <= 72; i++) t.run(salon, String(i), i);
-  const bahce = s.run('Bahçe', 2).lastInsertRowid;
-  for (let i = 1; i <= 18; i++) t.run(bahce, 'B' + i, i);
 
   const c = db.prepare('INSERT INTO categories(name,sort) VALUES(?,?)');
   const p = db.prepare('INSERT INTO products(category_id,name,price,sort,kitchen,ask_price) VALUES(?,?,?,?,?,?)');
