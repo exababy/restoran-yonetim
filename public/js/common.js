@@ -5,12 +5,25 @@ const store = {
   set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
 };
 
+// Tema: 'dark' | 'light' (premium) veya 'classic'. Cihazda hatırlanır, sunucu ayarı gelince güncellenir.
+export function applyTheme(t) {
+  t = ['dark', 'light', 'classic'].includes(t) ? t : 'dark';
+  document.body.classList.toggle('premium', t !== 'classic');
+  document.body.dataset.theme = t;
+  store.set('pos_theme', t);
+}
+if (document.body) applyTheme(store.get('pos_theme'));
+else document.addEventListener('DOMContentLoaded', () => applyTheme(store.get('pos_theme')));
+
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const nf = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const money = (n) => nf.format(Math.round((Number(n) || 0) * 100) / 100);
+// Kısa para gösterimi: 2.090 ₺ / 462,50 ₺ (dar kutular için)
+const nf0 = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 });
+export const moneyShort = (n, unit = true) => { const v = Math.round((Number(n) || 0) * 100) / 100; return (Number.isInteger(v) ? nf0.format(v) : money(v)) + (unit ? ' ₺' : ''); };
 export const qty = (n) => (Number.isInteger(n) ? String(n) : String(n).replace('.', ','));
 export const pad2 = (n) => String(n).padStart(2, '0');
 export const dateTime = (ms) => {
@@ -61,6 +74,7 @@ export function loginScreen(title = 'Restoran POS') {
       <button class="btn btn-green login-ok">GİRİŞ</button>
     </div>`;
     document.body.appendChild(el);
+    api('/api/info').then((i) => { if (i.name) $('.login-title', el).textContent = i.name; applyTheme(i.theme); }).catch(() => {});
     let pin = '';
     const show = () => { $('.login-pin', el).textContent = '●'.repeat(pin.length) || ' '; };
     const submit = async () => {

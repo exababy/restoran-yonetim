@@ -348,3 +348,4 @@ textarea.inp { height: auto; padding: 8px 10px; }
 .sc-item { display: block; width: calc(100% - 12px); margin: 6px 6px 0; text-align: left; border: 1px solid #d5dde3; background: #f8fafc; padding: 8px; font-size: 14px; }
 .sc-item span { float: right; font-weight: 700; }
 .sc-item.sel { background: #ffe3b3; border-color: var(--orange); }
+.short { display: none; }
