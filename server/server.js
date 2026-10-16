@@ -297,12 +297,6 @@ route('POST', '/api/login', ({ body }) => {
   return { token, user: u };
 }, { public: true });
 
-// Giriş ekranı için herkese açık temel bilgi
-route('GET', '/api/info', () => {
-  const s = settings();
-  return { name: s.restaurant_name, theme: s.theme };
-}, { public: true });
-
 route('POST', '/api/logout', ({ token }) => { sessions.delete(token); return { ok: true }; });
 
 route('GET', '/api/bootstrap', ({ user }) => ({

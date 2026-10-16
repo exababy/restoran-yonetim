@@ -57,8 +57,6 @@ const RENDER = {
     const s = (await api('/api/bootstrap')).settings;
     c.innerHTML = `<div class="form">
       ${field('Restoran Adı', 'restaurant_name', s)}
-      <label>Görünüm (Tema)</label><select class="inp" data-key="theme">
-        ${[['dark', 'Premium Koyu'], ['light', 'Premium Açık'], ['classic', 'Klasik (NetCHIEF görünümü)']].map(([v, l]) => `<option value="${v}" ${(s.theme || 'dark') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
       ${field('Adres', 'address', s)}
       ${field('Telefon', 'phone', s)}
       ${field('Fiş Alt Yazısı', 'receipt_footer', s)}

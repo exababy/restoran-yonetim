@@ -1,6 +1,6 @@
 import {
   $, $$, esc, money, qty, dateTime, duration, hm, api, ensureSession, connectEvents, toast, beep, modal, confirmBox,
-  textPrompt, numberPrompt, numpad, printHtml, receiptHtml, kitchenHtml, logout, loginScreen, METHODS, seatName, applyTheme, moneyShort,
+  textPrompt, numberPrompt, numpad, printHtml, receiptHtml, kitchenHtml, logout, loginScreen, METHODS, seatName,
 } from './common.js';
 import { openOptions } from './options.js';
 
@@ -29,15 +29,11 @@ const sectionById = (id) => S.boot.sections.find((s) => s.id === id);
 const productById = (id) => S.boot.products.find((p) => p.id === id);
 const orderForTable = (tid) => S.orders.find((o) => o.type === 'masa' && o.table_id === tid);
 const err = (e) => toast(e.message || String(e), 'error', 4000);
-// her kategoriye ayırt edici bir renk tonu
-const HUES = [14, 32, 4, 200, 42, 330, 268, 160, 188, 52, 290, 120];
-const catHue = (cid) => HUES[Math.max(0, S.boot.categories.findIndex((c) => c.id === cid)) % HUES.length];
 
 // ---------------- başlangıç ----------------
 async function start() {
   S.boot = await ensureSession('Restoran POS');
   document.title = (setting('restaurant_name') || 'Restoran') + ' - POS';
-  applyTheme(setting('theme'));
   S.sectionId = S.boot.sections[0]?.id ?? null;
   S.categoryId = S.boot.categories[0]?.id ?? null;
   $('#app').hidden = false;
@@ -45,12 +41,8 @@ async function start() {
   await refreshState();
   connectEvents(onEvent, (ok) => $('#conn').classList.toggle('off', !ok));
   setInterval(tick, 15000);
-  const clock = () => {
-    $('#clock').textContent = hm(Date.now());
-    $('#dateLine').textContent = new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
-  };
-  setInterval(clock, 1000);
-  clock();
+  setInterval(() => { $('#clock').textContent = hm(Date.now()); }, 1000);
+  $('#clock').textContent = hm(Date.now());
   renderAll();
 }
 
@@ -60,7 +52,6 @@ async function reloadBoot() {
   S.boot.me = me;
   if (!sectionById(S.sectionId)) S.sectionId = S.boot.sections[0]?.id ?? null;
   if (!S.boot.categories.find((c) => c.id === S.categoryId)) S.categoryId = S.boot.categories[0]?.id ?? null;
-  applyTheme(setting('theme'));
   renderAll();
 }
 
@@ -164,7 +155,7 @@ function renderLeft() {
   $$('.tab').forEach((b) => b.classList.toggle('active', b.dataset.view === S.view));
   const el = $('#leftList');
   if (S.view === 'satis') {
-    el.innerHTML = S.boot.categories.map((c) => `<button class="left-item cat ${c.id === S.categoryId ? 'active' : ''}" data-cat="${c.id}" style="--h:${catHue(c.id)}">${esc(c.name)}</button>`).join('');
+    el.innerHTML = S.boot.categories.map((c) => `<button class="left-item cat ${c.id === S.categoryId ? 'active' : ''}" data-cat="${c.id}">${esc(c.name)}</button>`).join('');
     return;
   }
   const count = (fn) => S.orders.filter(fn).length;
@@ -211,9 +202,9 @@ function renderTables(grid) {
       if (o.paid > 0) cls.push('partial');
       if (longWait && now - (o.last_order_at || o.opened_at) > longWait * 60000) cls.push('longwait');
       if (o.alarm_at && o.alarm_at <= now) cls.push('alarm');
-      inner += `<div class="t-total"><span class="full">${money(o.remaining)} TL</span><span class="short">${moneyShort(o.remaining, false)}</span></div>
+      inner += `<div class="t-total">${money(o.remaining)} TL</div>
         <div class="t-meta">${duration(now - o.opened_at)}${o.guests ? ' · ' + o.guests + '👤' : ''}</div>
-        <div class="t-icons"><span class="cl">${o.k_ready ? '🔔' : o.k_wait ? '🍳' : ''}${o.alarm_at && o.alarm_at > now ? '⏰' : ''}</span>${o.k_ready ? '<span class="kdot ready" title="Mutfakta hazır"></span>' : o.k_wait ? '<span class="kdot wait" title="Mutfakta hazırlanıyor"></span>' : ''}${o.alarm_at && o.alarm_at > now ? '<span class="kdot alarm" title="Alarm kurulu"></span>' : ''}</div>`;
+        <div class="t-icons">${o.k_ready ? '🔔' : o.k_wait ? '🍳' : ''}${o.alarm_at && o.alarm_at > now ? '⏰' : ''}</div>`;
     }
     if (S.cur?.tableId === t.id) cls.push('selected');
     return `<button class="${cls.join(' ')}" data-table="${t.id}">${inner}</button>`;
@@ -244,9 +235,8 @@ function renderCards(grid, type) {
 function renderProducts(grid) {
   const prods = S.boot.products.filter((p) => p.category_id === S.categoryId);
   fitGrid(grid, prods.length, Number(setting('product_cols')) || 5, 58);
-  const h = catHue(S.categoryId);
-  grid.innerHTML = prods.map((p) => `<button class="cell prod ${p.ask_price ? 'ask' : ''}" data-product="${p.id}" style="--h:${h}">
-    <span class="p-name">${esc(p.name)}</span><span class="p-price"><span class="full">${p.ask_price ? 'Fiyat?' : money(p.price)}</span><span class="short">${p.ask_price ? 'Fiyat sor' : moneyShort(p.price)}</span></span></button>`).join('');
+  grid.innerHTML = prods.map((p) => `<button class="cell prod ${p.ask_price ? 'ask' : ''}" data-product="${p.id}">
+    <span class="p-price">${p.ask_price ? 'Fiyat?' : money(p.price)}</span><span class="p-name">${esc(p.name)}</span></button>`).join('');
 }
 
 // --- Çağrı merkezi ---
@@ -335,7 +325,6 @@ function renderDetails() {
   const o = S.order;
   const tb = $('#detailsRows');
   $('#servedBtn').hidden = !o?.items.some((i) => i.status === 'active' && i.kitchen_status === 'ready');
-  $('.details-body').classList.toggle('has-rows', !!o);
   if (!o) { tb.innerHTML = ''; return; }
   let html = o.items.map((i) => `<tr class="${i.status === 'cancelled' ? 'cancelled' : ''} ${S.detailSel.has(i.id) ? 'sel' : ''}" data-item="${i.id}">
     <td class="user">${esc(i.user_name || '')}</td>
@@ -351,19 +340,19 @@ function renderDetails() {
 
 function renderPending() {
   $('#pendingRows').innerHTML = S.pending.map((p, i) => `<div class="prow ${i === S.pendingSel ? 'sel' : ''} ${p.free ? 'free' : ''}" data-p="${i}">
-    <span><button class="pnote-btn ${p.note ? 'has' : ''}" data-pnote="${i}" title="Ürün notu"><svg class="i"><use href="#i-edit"/></svg><span class="cl">📝</span></button>${esc(p.name)}${p.note ? `<span class="note">» ${esc(p.note)}</span>` : ''}</span><span>${qty(p.qty)}</span>
+    <span><button class="pnote-btn ${p.note ? 'has' : ''}" data-pnote="${i}" title="Ürün notu">📝</button>${esc(p.name)}${p.note ? `<span class="note">» ${esc(p.note)}</span>` : ''}</span><span>${qty(p.qty)}</span>
     <span>${p.free ? 'İkram' : money(p.qty * p.price)}</span></div>`).join('');
   const total = S.pending.reduce((s, p) => s + (p.free ? 0 : p.qty * p.price), 0);
   $('#pendingTotal').textContent = money(total) + ' TL';
   $('#cashierName').textContent = S.boot.me.name;
   const cname = S.cur?.customerName || S.order?.customer_name;
   const cb = $('#customerBtn');
-  $('.lbl', cb).textContent = cname || 'Müşteri Seç';
+  cb.textContent = cname ? '👤 ' + cname : 'Müşteri Seç';
   cb.classList.toggle('has', !!cname);
   $('#noteBtn').classList.toggle('has', !!(S.pendingNote || S.order?.note));
   $$('#mults button').forEach((b) => b.classList.toggle('active', Number(b.dataset.m) === S.mult));
   $('#alarmBtn').classList.toggle('on', !!S.order?.alarm_at);
-  $('#alarmBtn .lbl').textContent = S.order?.alarm_at ? hm(S.order.alarm_at) : 'ALARM';
+  $('#alarmBtn').textContent = S.order?.alarm_at ? '⏰ ' + hm(S.order.alarm_at) : 'ALARM';
 }
 
 function renderInfo() {

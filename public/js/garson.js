@@ -1,5 +1,5 @@
 // Garson el terminali (telefon / tablet)
-import { $, esc, money, qty, duration, api, ensureSession, connectEvents, toast, textPrompt, numberPrompt, confirmBox, logout, beep, applyTheme } from './common.js';
+import { $, esc, money, qty, duration, api, ensureSession, connectEvents, toast, textPrompt, numberPrompt, confirmBox, logout, beep } from './common.js';
 
 const S = { boot: null, orders: [], screen: 'tables', sectionId: null, categoryId: null, table: null, order: null, cart: [] };
 const err = (e) => toast(e.message || String(e), 'error', 4000);
@@ -7,7 +7,6 @@ const quickNotes = () => (S.boot.settings.quick_notes || '').split(',').map((s) 
 
 async function start() {
   S.boot = await ensureSession('Garson Terminali');
-  applyTheme(S.boot.settings.theme);
   S.sectionId = S.boot.sections[0]?.id;
   S.categoryId = S.boot.categories[0]?.id;
   $('#m').hidden = false;

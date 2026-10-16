@@ -5,14 +5,6 @@ Kasa ekranı (Masa / Satış sekmeleri, masa ızgarası, 0,5–4 çarpanları, K
 Yazdırma!, Vazgeç / Kaydet, Ödeme / Yazdır / Düzenle / Taşı / İndirim / İptal, Masa Açılış / Son Sipariş / Toplam / Ön Ödeme)
 birebir aynı yerleşimdedir.
 
-### Görünüm (Tema)
-
-Seçenekler › Genel Ayarlar › **Görünüm** ile seçilir; tüm kasalara, garson ve mutfak ekranlarına uygulanır:
-
-- **Premium Koyu** (varsayılan) – koyu zemin, SVG ikonlar, kategori renkleri, yumuşak gölgeli kartlar
-- **Premium Açık** – aynı tasarımın açık renkli hali (gün ışığı alan kasalar için)
-- **Klasik** – orijinal NetCHIEF görünümü
-
 ## Kurulum (Windows kasa bilgisayarı)
 
 1. [Node.js](https://nodejs.org) **22 LTS** (22.13 veya üzeri) kurun. Başka hiçbir paket gerekmez (`npm install` gerekmez).
