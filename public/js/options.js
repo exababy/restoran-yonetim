@@ -57,6 +57,9 @@ const RENDER = {
     const s = (await api('/api/bootstrap')).settings;
     c.innerHTML = `<div class="form">
       ${field('Restoran Adı', 'restaurant_name', s)}
+      <label>Görünüm (Tema)</label><select class="inp" data-key="ui_theme">
+        ${[['classic', 'Klasik (orijinal görünüm)'], ['dark', 'Premium Koyu'], ['light', 'Premium Açık']].map(([v, l]) => `<option value="${v}" ${(s.ui_theme || 'classic') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <div class="hint">Kaydedince tüm kasalarda, garson ve mutfak ekranlarında anında değişir.</div>
       ${field('Adres', 'address', s)}
       ${field('Telefon', 'phone', s)}
       ${field('Fiş Alt Yazısı', 'receipt_footer', s)}

@@ -37,6 +37,7 @@ CREATE INDEX IF NOT EXISTS ix_pay_created ON payments(created_at);
 
 export const DEFAULT_SETTINGS = {
   restaurant_name: 'KEBAPÇI YALÇIN',
+  ui_theme: 'classic', // classic = orijinal görünüm, dark/light = premium
   address: '',
   phone: '',
   receipt_footer: 'Afiyet olsun, yine bekleriz!',

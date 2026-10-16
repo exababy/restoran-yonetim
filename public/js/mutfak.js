@@ -1,5 +1,5 @@
 // Mutfak ekranı (KDS)
-import { $, esc, qty, hm, duration, api, ensureSession, connectEvents, toast, beep } from './common.js';
+import { $, esc, qty, hm, duration, api, ensureSession, connectEvents, toast, beep, applyTheme } from './common.js';
 
 let data = { orders: [], recent: [] };
 let sound = true;
@@ -7,7 +7,8 @@ const err = (e) => toast(e.message || String(e), 'error', 4000);
 const STATUS = { new: 'Yeni', preparing: 'Hazırlanıyor' };
 
 async function start() {
-  await ensureSession('Mutfak Ekranı');
+  const boot = await ensureSession('Mutfak Ekranı');
+  applyTheme(boot.settings.ui_theme === 'classic' ? 'classic' : 'dark');
   $('#k').hidden = false;
   $('#kSound').onclick = () => { sound = !sound; $('#kSound').textContent = sound ? '🔔 Ses Açık' : '🔕 Ses Kapalı'; if (sound) beep(1); };
   connectEvents((ev) => {

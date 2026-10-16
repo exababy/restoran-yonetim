@@ -349,8 +349,7 @@ textarea.inp { height: auto; padding: 8px 10px; }
 .sc-item span { float: right; font-weight: 700; }
 .sc-item.sel { background: #ffe3b3; border-color: var(--orange); }
 
-/* =====================================================================
-   Orijinal ekranla birebir uyum (1024x768 dokunmatik kasa ölçüleri)
+/* ==============================================================   Orijinal ekranla birebir uyum (1024x768 dokunmatik kasa ölçüleri)
    ===================================================================== */
 body {
   background:
@@ -456,3 +455,4 @@ body.view-satis .customer-btn { display: block; }
 .pending-foot { margin-bottom: clamp(20px, 7vh, 80px); }
 .cell .t-total { font-size: clamp(11px, 1.2vw, 18px); letter-spacing: -.2px; }
 .sb-people, .sb-lock { font-size: clamp(20px, 2.4vw, 32px); }
+.short { display: none; }

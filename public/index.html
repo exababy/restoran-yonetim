@@ -5,22 +5,51 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>Restoran POS</title>
 <link rel="stylesheet" href="/css/app.css">
+<link rel="stylesheet" href="/css/premium.css">
 </head>
 <body class="pos">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></symbol>
+  <symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></symbol>
+  <symbol id="i-move" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></symbol>
+  <symbol id="i-percent" viewBox="0 0 24 24"><path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></symbol>
+  <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+</svg>
 <div id="app" hidden>
   <aside id="left">
     <div class="tabs">
-      <button class="tab active" data-view="masa">Masa</button>
-      <button class="tab" data-view="satis">Satış</button>
+      <button class="tab active" data-view="masa"><svg class="i"><use href="#i-grid"/></svg>Masa</button>
+      <button class="tab" data-view="satis"><svg class="i"><use href="#i-bag"/></svg>Satış</button>
     </div>
     <div id="leftList" class="left-list"></div>
     <div class="left-bottom">
-      <input id="findInput" class="find-input" title="Masa no veya müşteri adı">
-      <button id="findBtn" class="find-btn">BUL</button>
-      <button id="drawerBtn" class="drawer-btn">Çekmece Aç</button>
+      <div class="find-row"><input id="findInput" class="find-input" title="Masa no veya müşteri adı">
+      <button id="findBtn" class="find-btn"><svg class="i"><use href="#i-search"/></svg><span class="cl">BUL</span></button></div>
+      <button id="drawerBtn" class="drawer-btn"><svg class="i"><use href="#i-wallet"/></svg>Çekmece Aç</button>
       <div id="clock" class="clock">00:00</div>
-      <div class="brand"><b>Adisyon</b>PRO<span id="conn" class="conn" title="Sunucu bağlantısı"></span></div>
-      <button id="optionsBtn" class="options-btn"><span>🔧</span> Seçenekler</button>
+      <div id="dateLine" class="date-line"></div>
+      <div class="brand"><svg class="i"><use href="#i-flame"/></svg><span><b>Adisyon</b>PRO</span><span id="conn" class="conn" title="Sunucu bağlantısı"></span></div>
+      <button id="optionsBtn" class="options-btn"><svg class="i"><use href="#i-sliders"/></svg><span><span class="cl">🔧 </span>Seçenekler</span></button>
     </div>
   </aside>
 
@@ -35,6 +64,7 @@
         <thead><tr><th class="c-user">Kullan...</th><th>Açıklama</th><th class="c-copy">Kopyala</th><th class="c-price">B.Fiyat</th><th class="c-total">Toplam</th></tr></thead>
         <tbody id="detailsRows"></tbody>
       </table>
+      <div id="detailsEmpty" class="details-empty">Masa seçin veya ürün ekleyin</div>
     </div>
   </section>
 
@@ -46,14 +76,15 @@
     <div class="right-main">
       <div class="pending-col">
         <div class="cashier-row">
-          <div><div id="cashierName" class="cashier-name">Kasiyer</div>
-            <label class="free-chk"><input type="checkbox" id="freeChk"> Bedelsiz</label></div>
-          <button id="alarmBtn" class="alarm-btn">ALARM</button>
+          <div class="cashier-who"><span class="avatar"><svg class="i"><use href="#i-user"/></svg></span>
+            <div><div id="cashierName" class="cashier-name">Kasiyer</div>
+            <label class="free-chk"><input type="checkbox" id="freeChk"> Bedelsiz</label></div></div>
+          <button id="alarmBtn" class="alarm-btn"><svg class="i"><use href="#i-bell"/></svg><span class="lbl">ALARM</span></button>
         </div>
         <div class="pending-box">
           <div class="pending-head"><span>Açıklama</span><span>Ad.</span><span>Tutar</span></div>
           <div id="pendingRows" class="pending-rows"></div>
-          <button id="customerBtn" class="customer-btn">Müşteri Seç</button>
+          <button id="customerBtn" class="customer-btn"><svg class="i"><use href="#i-user"/></svg><span class="lbl">Müşteri Seç</span></button>
           <div class="pending-foot">
             <label class="noprint-chk"><input type="checkbox" id="noPrintChk"> Yazdırma !</label>
             <span id="pendingTotal">0, 0 TL</span>
@@ -61,31 +92,31 @@
         </div>
       </div>
       <div class="side-btns">
-        <button id="clearBtn" class="sb sb-x" title="Tümünü temizle">✕</button>
-        <button id="minusBtn" class="sb sb-minus" title="Adet azalt">—</button>
-        <button id="guestsBtn" class="sb sb-people" title="Kişi sayısı">👥</button>
-        <button id="lockBtn" class="sb sb-lock" title="Kilitle / Kullanıcı değiştir">🔒</button>
-        <button id="timeBtn" class="sb sb-time" title="Açık masalar ve süreleri">SAAT</button>
-        <button id="upBtn" class="sb sb-arrow" title="Yukarı">▲</button>
-        <button id="downBtn" class="sb sb-arrow" title="Aşağı">▼</button>
-        <button id="delBtn" class="sb sb-del" title="Satırı sil">SİL</button>
+        <button id="clearBtn" class="sb sb-x" title="Tümünü temizle"><svg class="i"><use href="#i-x"/></svg><span class="cl">✕</span></button>
+        <button id="minusBtn" class="sb sb-minus" title="Adet azalt"><svg class="i"><use href="#i-minus"/></svg><span class="cl">—</span></button>
+        <button id="guestsBtn" class="sb sb-people" title="Kişi sayısı"><svg class="i"><use href="#i-users"/></svg><span class="cl">👥</span></button>
+        <button id="lockBtn" class="sb sb-lock" title="Kilitle / Kullanıcı değiştir"><svg class="i"><use href="#i-lock"/></svg><span class="cl">🔒</span></button>
+        <button id="timeBtn" class="sb sb-time" title="Açık masalar ve süreleri"><svg class="i"><use href="#i-clock"/></svg><span class="cl">SAAT</span></button>
+        <button id="upBtn" class="sb sb-arrow" title="Yukarı"><svg class="i"><use href="#i-up"/></svg><span class="cl">▲</span></button>
+        <button id="downBtn" class="sb sb-arrow" title="Aşağı"><svg class="i"><use href="#i-down"/></svg><span class="cl">▼</span></button>
+        <button id="delBtn" class="sb sb-del" title="Satırı sil"><svg class="i"><use href="#i-trash"/></svg><span class="cl">SİL</span></button>
       </div>
     </div>
     <div class="save-row">
-      <button id="cancelBtn" class="big-btn btn-cancel"><span class="ic">✕</span> Vazgeç</button>
-      <button id="saveBtn" class="big-btn btn-save"><span class="ic">✔</span> Kaydet</button>
-      <button id="noteBtn" class="note-btn" title="Toplu not / adisyon notu">📄</button>
+      <button id="cancelBtn" class="big-btn btn-cancel"><svg class="i"><use href="#i-x"/></svg><span class="ic cl">✕</span> Vazgeç</button>
+      <button id="saveBtn" class="big-btn btn-save"><svg class="i"><use href="#i-check"/></svg><span class="ic cl">✔</span> Kaydet</button>
+      <button id="noteBtn" class="note-btn" title="Toplu not / adisyon notu"><svg class="i"><use href="#i-note"/></svg><span class="cl">📄</span></button>
     </div>
   </section>
 
   <section id="actions">
     <div class="act-grid">
-      <button id="payBtn" class="act act-pay">Ödeme</button>
-      <button id="printBtn" class="act act-print">Yazdır</button>
-      <button id="editBtn" class="act act-blue">Düzenle</button>
-      <button id="moveBtn" class="act act-blue">Taşı</button>
-      <button id="discountBtn" class="act act-blue">İndirim</button>
-      <button id="voidBtn" class="act act-void">İptal</button>
+      <button id="payBtn" class="act act-pay"><svg class="i"><use href="#i-card"/></svg>Ödeme</button>
+      <button id="printBtn" class="act act-print"><svg class="i"><use href="#i-printer"/></svg>Yazdır</button>
+      <button id="editBtn" class="act act-blue"><svg class="i"><use href="#i-edit"/></svg>Düzenle</button>
+      <button id="moveBtn" class="act act-blue act-move"><svg class="i"><use href="#i-move"/></svg>Taşı</button>
+      <button id="discountBtn" class="act act-blue act-disc"><svg class="i"><use href="#i-percent"/></svg>İndirim</button>
+      <button id="voidBtn" class="act act-void"><svg class="i"><use href="#i-ban"/></svg>İptal</button>
     </div>
     <div class="info-grid">
       <div class="info-h">Masa Açılış</div><div class="info-h">Süre</div>
@@ -97,9 +128,9 @@
     </div>
     <div class="guests">
       <div id="guestCount" class="guest-count">0</div>
-      <div class="guest-ic">👥</div>
-      <button id="guestPlus" class="guest-btn">+</button>
-      <button id="guestMinus" class="guest-btn">—</button>
+      <div class="guest-ic"><svg class="i"><use href="#i-users"/></svg><span class="cl">👥</span></div>
+      <button id="guestPlus" class="guest-btn"><svg class="i"><use href="#i-plus"/></svg><span class="cl">+</span></button>
+      <button id="guestMinus" class="guest-btn"><svg class="i"><use href="#i-minus"/></svg><span class="cl">—</span></button>
     </div>
   </section>
 </div>
