@@ -84,8 +84,26 @@ function getOrder(id) {
   const paid = o.payments.filter((p) => !p.cancelled).reduce((s, p) => s + p.amount, 0);
   Object.assign(o, totalsFor(o, sub, paid));
   o.label = orderLabel(o);
+  if (o.split_count > 0) o.seats = seatShares(o);
   return o;
 }
+
+// Hesap bölme: her kişinin (0 = ortak) payı, indirim oransal dağıtılır, kuruş farkı en büyük paya eklenir
+function seatShares(o) {
+  const ratio = o.subtotal > 0 ? o.total / o.subtotal : 1;
+  const groups = [];
+  for (let seat = 0; seat <= o.split_count; seat++) {
+    const items = o.items.filter((i) => i.status === 'active' && (i.seat || 0) === seat);
+    const sub = items.filter((i) => !i.free).reduce((s, i) => s + i.qty * i.unit_price, 0);
+    const paid = o.payments.filter((p) => !p.cancelled && (p.seat || 0) === seat).reduce((s, p) => s + p.amount, 0);
+    groups.push({ seat, count: items.length, subtotal: r2(sub), share: r2(sub * ratio), paid: r2(paid) });
+  }
+  const diff = r2(o.total - groups.reduce((s, g) => s + g.share, 0));
+  if (diff) { const big = groups.reduce((a, b) => (b.share > a.share ? b : a)); big.share = r2(big.share + diff); }
+  for (const g of groups) g.remaining = r2(g.share - g.paid);
+  return groups;
+}
+const seatName = (n) => (n ? `${n}. KİŞİ` : 'ORTAK');
 
 function openOrders() {
   const rows = q(`SELECT o.*, c.name customer_name, c.phone customer_phone, c.address customer_address, u.name user_name,
@@ -141,16 +159,27 @@ function receiptDoc(o, kind) {
     if (o.customer_address) doc.push({ t: 'line', v: o.customer_address });
   }
   doc.push({ t: 'line', v: line });
-  const merged = new Map();
-  for (const i of o.items.filter((x) => x.status === 'active')) {
-    const k = `${i.name}|${i.unit_price}|${i.free}`;
-    const m = merged.get(k) || { ...i, qty: 0 };
-    m.qty += i.qty; merged.set(k, m);
-  }
-  for (const i of merged.values()) {
-    const amount = i.free ? 'İKRAM' : fmt(i.qty * i.unit_price);
-    doc.push({ t: 'line', v: pad(`${qtyStr(i.qty)} x ${i.name}`, amount, w) });
-  }
+  const itemLines = (list) => {
+    const merged = new Map();
+    for (const i of list) {
+      const k = `${i.name}|${i.unit_price}|${i.free}`;
+      const m = merged.get(k) || { ...i, qty: 0 };
+      m.qty = r2(m.qty + i.qty); merged.set(k, m);
+    }
+    for (const i of merged.values()) {
+      doc.push({ t: 'line', v: pad(`${qtyStr(i.qty)} x ${i.name}`, i.free ? 'İKRAM' : fmt(i.qty * i.unit_price), w) });
+    }
+  };
+  const active = o.items.filter((x) => x.status === 'active');
+  if (o.seats) {
+    // tek fiş, kişi kişi ayrılmış bölümler
+    for (const g of o.seats.filter((x) => x.count)) {
+      doc.push({ t: 'text', v: `--- ${seatName(g.seat)} ---`, align: 'center', bold: true });
+      itemLines(active.filter((i) => (i.seat || 0) === g.seat));
+      doc.push({ t: 'text', v: pad(`${seatName(g.seat)} TOPLAM`, fmt(g.share), w), bold: true });
+      if (g.paid > 0) doc.push({ t: 'line', v: pad(g.remaining <= 0.009 ? '  ÖDENDİ' : '  Ödenen', fmt(g.paid), w) });
+    }
+  } else itemLines(active);
   doc.push({ t: 'line', v: line });
   if (o.discount > 0) {
     doc.push({ t: 'line', v: pad('Ara Toplam', fmt(o.subtotal), w) });
@@ -168,11 +197,11 @@ function receiptDoc(o, kind) {
   return doc;
 }
 
-function kitchenDoc(o, items, user) {
+function kitchenDoc(o, items, user, title = 'MUTFAK') {
   const s = settings();
   const w = Number(s.printer_width) || 42;
   const doc = [
-    { t: 'text', v: 'MUTFAK', align: 'center', bold: true },
+    { t: 'text', v: title.toLocaleUpperCase('tr'), align: 'center', bold: true },
     { t: 'text', v: o.label, align: 'center', bold: true, size: 'big' },
     { t: 'line', v: pad(dt(now()), user?.name || '', w) },
     { t: 'line', v: '-'.repeat(w) },
@@ -278,6 +307,7 @@ route('GET', '/api/bootstrap', ({ user }) => ({
   categories: q('SELECT * FROM categories ORDER BY sort, id'),
   products: q('SELECT * FROM products WHERE active=1 ORDER BY sort, id'),
   users: q('SELECT id,name,role FROM users WHERE active=1 ORDER BY id'),
+  printers: q('SELECT * FROM printers ORDER BY id'),
   server: { host: os.hostname(), port: PORT, db: DB_FILE },
 }));
 
@@ -319,7 +349,8 @@ route('POST', '/api/orders/add-items', ({ body, user }) => {
       const price = p.ask_price || it.price_override !== undefined && ROLE_LEVEL[user.role] >= 2 ? r2(it.price ?? p.price) : p.price;
       const ks = p.kitchen ? 'new' : 'none';
       const id = ins.run(orderId, p.id, p.category_id, it.name || p.name, qty, price, it.free ? 1 : 0, it.note || '', user.id, now(), ks, now()).lastInsertRowid;
-      added.push({ id: Number(id), name: it.name || p.name, qty, note: it.note || '', kitchen: !!p.kitchen });
+      const printerId = p.printer_id ?? q1('SELECT printer_id FROM categories WHERE id=?', p.category_id)?.printer_id ?? null;
+      added.push({ id: Number(id), name: it.name || p.name, qty, note: it.note || '', kitchen: !!p.kitchen, printer_id: printerId || null });
     }
     log(user, 'urun_eklendi', `#${orderId}: ` + added.map((a) => `${a.qty}x ${a.name}`).join(', '));
     return { orderId, added };
@@ -327,14 +358,27 @@ route('POST', '/api/orders/add-items', ({ body, user }) => {
   const o = getOrder(result.orderId);
   const kitchenItems = result.added.filter((a) => a.kitchen);
   const s = settings();
-  let kitchenPrinted = false;
-  if (kitchenItems.length && s.kitchen_ticket === '1' && !body.no_print && s.kitchen_printer) {
-    printDoc(s.kitchen_printer, kitchenDoc(o, kitchenItems, user)).catch((e) => broadcast('print_error', { message: e.message }));
-    kitchenPrinted = true;
+  // Her ürün kendi yazıcısına: ürün yazıcısı > kategori yazıcısı. Adresi boş yazıcılar tarayıcıdan basılır.
+  const browserTickets = [];
+  if (s.kitchen_ticket === '1' && !body.no_print) {
+    const groups = new Map();
+    for (const a of result.added) {
+      if (!a.printer_id) continue;
+      if (!groups.has(a.printer_id)) groups.set(a.printer_id, []);
+      groups.get(a.printer_id).push(a);
+    }
+    for (const [pid, items] of groups) {
+      const pr = q1('SELECT * FROM printers WHERE id=? AND active=1', pid);
+      if (!pr) continue;
+      if (pr.address) {
+        printDoc(pr.address, kitchenDoc(o, items, user, pr.name))
+          .catch((e) => broadcast('print_error', { message: `${pr.name}: ${e.message}` }));
+      } else browserTickets.push({ title: pr.name, items });
+    }
   }
   broadcast('changed', { order_id: o.id });
   if (kitchenItems.length) broadcast('kitchen_new', { order_id: o.id, label: o.label });
-  return { order: o, kitchen_items: kitchenItems, kitchen_printed: kitchenPrinted };
+  return { order: o, kitchen_items: kitchenItems, browser_tickets: browserTickets };
 });
 
 route('POST', /^\/api\/orders\/(\d+)\/update$/, ({ params, body, user }) => {
@@ -370,9 +414,15 @@ route('POST', /^\/api\/orders\/(\d+)\/pay$/, ({ params, body, user }) => {
     const amount = r2(body.amount);
     const method = String(body.method || 'nakit');
     if (!METHOD_NAMES[method]) fail('Geçersiz ödeme tipi');
+    const seat = o.seats ? Math.max(0, Number(body.seat) || 0) : 0;
     if (amount > 0) {
       if (amount > o.remaining + 0.009) fail('Tutar kalan tutardan büyük olamaz');
-      const pid = run('INSERT INTO payments(order_id,method,amount,created_at,user_id) VALUES(?,?,?,?,?)', id, method, amount, now(), user.id).lastInsertRowid;
+      if (o.seats && body.seat !== undefined && body.seat !== null) {
+        const g = o.seats.find((x) => x.seat === seat);
+        if (!g) fail('Geçersiz kişi');
+        if (amount > g.remaining + 0.009) fail(`${seatName(seat)} için kalan tutar ${fmt(g.remaining)} TL`);
+      }
+      const pid = run('INSERT INTO payments(order_id,method,amount,created_at,user_id,seat) VALUES(?,?,?,?,?,?)', id, method, amount, now(), user.id, seat).lastInsertRowid;
       if (method === 'cari') {
         const cid = body.customer_id || o.customer_id;
         if (!cid) fail('Cari ödeme için müşteri seçilmelidir');
@@ -412,6 +462,58 @@ route('POST', /^\/api\/orders\/(\d+)\/cancel$/, ({ params, body, user }) => {
   });
   broadcast('changed', { order_id: id });
   return { ok: true };
+});
+
+// ---------- hesap bölme ----------
+route('POST', /^\/api\/orders\/(\d+)\/split$/, ({ params, body, user }) => {
+  const id = Number(params[0]);
+  const count = Math.floor(Number(body.count) || 0);
+  if (count < 0 || count > 20) fail('Kişi sayısı 0-20 arası olmalı');
+  tx(() => {
+    const o = q1("SELECT * FROM orders WHERE id=? AND status='open'", id);
+    if (!o) fail('Adisyon açık değil');
+    run('UPDATE order_items SET seat=0 WHERE order_id=? AND seat>?', id, count);
+    run('UPDATE payments SET seat=0 WHERE order_id=? AND seat>?', id, count);
+    run('UPDATE orders SET split_count=? WHERE id=?', count, id);
+    log(user, 'hesap_bol', `#${id} ${count} kişi`);
+  });
+  broadcast('changed', { order_id: id });
+  return getOrder(id);
+});
+
+route('POST', '/api/items/assign', ({ body }) => {
+  const ids = (body.ids || []).map(Number);
+  const seat = Math.max(0, Number(body.seat) || 0);
+  let orderId;
+  for (const iid of ids) {
+    const it = q1('SELECT order_id FROM order_items WHERE id=?', iid);
+    if (!it) continue;
+    orderId = it.order_id;
+    run('UPDATE order_items SET seat=? WHERE id=?', seat, iid);
+  }
+  if (!orderId) fail('Satır bulunamadı');
+  broadcast('changed', { order_id: orderId });
+  return getOrder(orderId);
+});
+
+// Bir satırı parçalara ayırır: parts=[{qty, seat}] toplamı satır adedine eşit olmalı
+route('POST', /^\/api\/items\/(\d+)\/split$/, ({ params, body, user }) => {
+  const it = q1('SELECT * FROM order_items WHERE id=?', Number(params[0]));
+  if (!it || it.status !== 'active') fail('Satır bulunamadı');
+  const parts = (body.parts || []).map((p) => ({ qty: r2(p.qty), seat: Math.max(0, Number(p.seat) || 0) })).filter((p) => p.qty > 0);
+  if (parts.length < 2) fail('En az iki parça gerekli');
+  if (Math.abs(parts.reduce((s, p) => s + p.qty, 0) - it.qty) > 0.001) fail('Parçaların toplamı satır adedine eşit olmalı');
+  tx(() => {
+    run('UPDATE order_items SET qty=?, seat=? WHERE id=?', parts[0].qty, parts[0].seat, it.id);
+    const ins = db.prepare(`INSERT INTO order_items(order_id,product_id,category_id,name,qty,unit_price,free,note,user_id,created_at,status,kitchen_status,kitchen_at,seat)
+      VALUES(?,?,?,?,?,?,?,?,?,?,'active',?,?,?)`);
+    for (const p of parts.slice(1)) {
+      ins.run(it.order_id, it.product_id, it.category_id, it.name, p.qty, it.unit_price, it.free, it.note, it.user_id, it.created_at, it.kitchen_status, it.kitchen_at, p.seat);
+    }
+    log(user, 'satir_bol', `#${it.order_id} ${it.name} → ${parts.map((p) => p.qty).join(' + ')}`);
+  });
+  broadcast('changed', { order_id: it.order_id });
+  return getOrder(it.order_id);
 });
 
 route('POST', '/api/items/cancel', ({ body, user }) => {
@@ -498,14 +600,7 @@ route('POST', /^\/api\/orders\/(\d+)\/move$/, ({ params, body, user }) => {
 route('POST', '/api/print', async ({ body, user }) => {
   const s = settings();
   const o = getOrder(Number(body.order_id));
-  const kind = body.kind === 'receipt' ? 'receipt' : body.kind === 'kitchen' ? 'kitchen' : 'adisyon';
-  if (kind === 'kitchen') {
-    const ids = (body.item_ids || []).map(Number);
-    const items = o.items.filter((i) => ids.includes(i.id));
-    if (!s.kitchen_printer) return { printed: false };
-    await printDoc(s.kitchen_printer, kitchenDoc(o, items, user));
-    return { printed: true };
-  }
+  const kind = body.kind === 'receipt' ? 'receipt' : 'adisyon';
   log(user, kind === 'receipt' ? 'fis_yazdir' : 'adisyon_yazdir', o.label);
   if (!s.receipt_printer) return { printed: false, order: o };
   await printDoc(s.receipt_printer, receiptDoc(o, kind));
@@ -725,8 +820,9 @@ const ENTITIES = {
   users: { cols: ['name', 'pin', 'role', 'active'], order: 'id' },
   sections: { cols: ['name', 'sort'], order: 'sort, id' },
   tables: { cols: ['section_id', 'name', 'sort'], order: 'section_id, sort, id' },
-  categories: { cols: ['name', 'sort'], order: 'sort, id' },
-  products: { cols: ['category_id', 'name', 'price', 'sort', 'active', 'kitchen', 'ask_price'], order: 'category_id, sort, id' },
+  categories: { cols: ['name', 'sort', 'printer_id'], order: 'sort, id' },
+  products: { cols: ['category_id', 'name', 'price', 'sort', 'active', 'kitchen', 'ask_price', 'printer_id'], order: 'category_id, sort, id' },
+  printers: { cols: ['name', 'address', 'active'], order: 'id' },
 };
 
 route('GET', /^\/api\/admin\/(\w+)$/, ({ params, user }) => {
@@ -765,6 +861,10 @@ route('POST', /^\/api\/admin\/(\w+)\/delete$/, ({ params, body, user }) => {
   if (name === 'sections') {
     if (q1("SELECT o.id FROM orders o JOIN tables t ON t.id=o.table_id WHERE t.section_id=? AND o.status='open'", body.id)) fail('Bölümde açık adisyon var');
     run('DELETE FROM tables WHERE section_id=?', body.id);
+  }
+  if (name === 'printers') {
+    run('UPDATE categories SET printer_id=NULL WHERE printer_id=?', body.id);
+    run('UPDATE products SET printer_id=NULL WHERE printer_id=?', body.id);
   }
   if (name === 'categories') run('UPDATE products SET active=0, category_id=NULL WHERE category_id=?', body.id);
   if (name === 'users' && Number(body.id) === user.id) fail('Kendi kullanıcınızı silemezsiniz');

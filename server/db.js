@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS payments(id INTEGER PRIMARY KEY, order_id INTEGER, me
   user_id INTEGER, cancelled INTEGER DEFAULT 0, cancelled_at INTEGER, cancel_user_id INTEGER);
 CREATE TABLE IF NOT EXISTS expenses(id INTEGER PRIMARY KEY, description TEXT, amount REAL, created_at INTEGER, user_id INTEGER);
 CREATE TABLE IF NOT EXISTS day_closings(id INTEGER PRIMARY KEY, period_start INTEGER, closed_at INTEGER, user_id INTEGER, summary TEXT);
+CREATE TABLE IF NOT EXISTS printers(id INTEGER PRIMARY KEY, name TEXT NOT NULL, address TEXT DEFAULT '', active INTEGER DEFAULT 1);
 CREATE TABLE IF NOT EXISTS logs(id INTEGER PRIMARY KEY, at INTEGER, user_id INTEGER, action TEXT, detail TEXT);
 CREATE INDEX IF NOT EXISTS ix_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS ix_orders_closed ON orders(closed_at);
@@ -87,8 +88,31 @@ export function openDb(file) {
   db.exec(SCHEMA);
   const ins = db.prepare('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)');
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) ins.run(k, v);
+  migrate(db);
   if (!db.prepare('SELECT COUNT(*) n FROM users').get().n) seed(db);
+  seedPrinters(db);
   return db;
+}
+
+function migrate(db) {
+  const addCol = (table, col, def) => {
+    if (!db.prepare(`PRAGMA table_info(${table})`).all().some((r) => r.name === col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+  };
+  addCol('categories', 'printer_id', 'INTEGER');  // kategorinin varsayılan yazıcısı (NULL = yazdırma)
+  addCol('products', 'printer_id', 'INTEGER');    // NULL = kategori yazıcısı, 0 = yazdırma
+  addCol('order_items', 'seat', 'INTEGER DEFAULT 0'); // hesap bölmede kişi no (0 = ortak)
+  addCol('payments', 'seat', 'INTEGER DEFAULT 0');
+  addCol('orders', 'split_count', 'INTEGER DEFAULT 0');
+}
+
+// İlk çalıştırmada Mutfak ve İçecek yazıcılarını oluşturur, kategorileri bunlara bağlar
+function seedPrinters(db) {
+  if (db.prepare('SELECT COUNT(*) n FROM printers').get().n) return;
+  const old = db.prepare("SELECT value FROM settings WHERE key='kitchen_printer'").get()?.value || '';
+  const ins = db.prepare('INSERT INTO printers(name,address) VALUES(?,?)');
+  const mutfak = ins.run('Mutfak', old).lastInsertRowid;
+  const icecek = ins.run('İçecek', '').lastInsertRowid;
+  db.prepare("UPDATE categories SET printer_id=CASE WHEN name='İçecekler' THEN ? ELSE ? END WHERE printer_id IS NULL").run(icecek, mutfak);
 }
 
 function seed(db) {

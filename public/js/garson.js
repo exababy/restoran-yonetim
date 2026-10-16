@@ -101,12 +101,18 @@ function renderCart(main) {
   $('#mTitle').textContent = `Sepet - Masa ${S.table.name}`;
   main.innerHTML = `<div class="m-cart">${S.cart.map((c, i) => `<div class="line"><div><b>${esc(c.name)}</b><div class="note">${esc(c.note)}</div>
       <button class="btn btn-sm" data-note="${i}">📝 Not</button></div>
-      <div class="qtyctl"><button data-minus="${i}">−</button><b>${qty(c.qty)}</b><button data-plus="${i}">+</button></div></div>`).join('') || '<p>Sepet boş</p>'}</div>`;
+      <div class="qtyctl"><button data-minus="${i}">−</button><b>${qty(c.qty)}</b><button data-plus="${i}">+</button></div></div>`).join('') || '<p>Sepet boş</p>'}</div>
+    ${S.cart.length ? '<div class="row" style="margin-top:12px"><button class="btn btn-orange" id="bulkNote">📝 Tüm ürünlere not ekle</button></div>' : ''}`;
   main.onclick = async (e) => {
     const t = e.target;
     const pl = t.closest('[data-plus]'); if (pl) { S.cart[pl.dataset.plus].qty++; render(); return; }
     const mi = t.closest('[data-minus]');
     if (mi) { const c = S.cart[mi.dataset.minus]; c.qty--; if (c.qty <= 0) S.cart.splice(mi.dataset.minus, 1); render(); return; }
+    if (t.closest('#bulkNote')) {
+      const v = await textPrompt('Tüm ürünlere eklenecek not', { presets: quickNotes(), multi: true });
+      if (v) { for (const c of S.cart) c.note = c.note ? c.note + ', ' + v : v; render(); }
+      return;
+    }
     const n = t.closest('[data-note]');
     if (n) { const c = S.cart[n.dataset.note]; const v = await textPrompt(c.name + ' notu', { value: c.note, presets: quickNotes(), multi: true }); if (v !== undefined) { c.note = v; render(); } }
   };

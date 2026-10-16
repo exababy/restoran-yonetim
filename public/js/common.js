@@ -241,7 +241,12 @@ export function numberPrompt(title, { value = '', decimals = true, info = '' } =
 }
 
 // ---------- tarayıcıdan yazdırma (80mm fiş) ----------
+// Birden fazla fiş (ör. mutfak + içecek) art arda gönderilince karışmasın diye sıraya alınır
+let printChain = Promise.resolve();
 export function printHtml(html) {
+  printChain = printChain.then(() => new Promise((done) => { printNow(html); setTimeout(done, 1500); }));
+}
+function printNow(html) {
   const f = document.createElement('iframe');
   f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
   document.body.appendChild(f);
@@ -258,13 +263,25 @@ export function printHtml(html) {
   setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 1500); }, 200);
 }
 
+export const seatName = (n) => (n ? `${n}. Kişi` : 'Ortak');
+
 export function receiptHtml(o, s, kind) {
-  const rows = new Map();
-  for (const i of o.items.filter((x) => x.status === 'active')) {
-    const k = `${i.name}|${i.unit_price}|${i.free}`;
-    const m = rows.get(k) || { ...i, qty: 0 };
-    m.qty += i.qty; rows.set(k, m);
-  }
+  const lines = (list) => {
+    const rows = new Map();
+    for (const i of list) {
+      const k = `${i.name}|${i.unit_price}|${i.free}`;
+      const m = rows.get(k) || { ...i, qty: 0 };
+      m.qty = Math.round((m.qty + i.qty) * 100) / 100; rows.set(k, m);
+    }
+    return [...rows.values()].map((i) => `<tr><td>${qty(i.qty)} x ${esc(i.name)}</td><td class="r">${i.free ? 'İKRAM' : money(i.qty * i.unit_price)}</td></tr>`).join('');
+  };
+  const active = o.items.filter((x) => x.status === 'active');
+  const body = o.seats
+    ? o.seats.filter((g) => g.count).map((g) => `<tr><td colspan="2" class="c b">--- ${seatName(g.seat).toLocaleUpperCase('tr')} ---</td></tr>
+        ${lines(active.filter((i) => (i.seat || 0) === g.seat))}
+        <tr class="b"><td>${seatName(g.seat)} toplam</td><td class="r">${money(g.share)}</td></tr>
+        ${g.paid > 0 ? `<tr><td>&nbsp;&nbsp;${g.remaining <= 0.009 ? 'ÖDENDİ' : 'Ödenen'}</td><td class="r">${money(g.paid)}</td></tr>` : ''}`).join('')
+    : lines(active);
   const pays = (o.payments || []).filter((p) => !p.cancelled);
   return `<div class="c b big">${esc(s.restaurant_name)}</div>
     ${s.address ? `<div class="c">${esc(s.address)}</div>` : ''}${s.phone ? `<div class="c">Tel: ${esc(s.phone)}</div>` : ''}
@@ -272,7 +289,7 @@ export function receiptHtml(o, s, kind) {
     <table><tr><td>${esc(o.label)}</td><td class="r">#${o.id}</td></tr>
     <tr><td>${dateTime(Date.now())}</td><td class="r">${o.guests ? o.guests + ' kişi' : ''}</td></tr></table>
     ${o.customer_name ? `<div>Müşteri: ${esc(o.customer_name)} ${esc(o.customer_phone || '')}</div><div>${esc(o.customer_address || '')}</div>` : ''}
-    <hr><table>${[...rows.values()].map((i) => `<tr><td>${qty(i.qty)} x ${esc(i.name)}</td><td class="r">${i.free ? 'İKRAM' : money(i.qty * i.unit_price)}</td></tr>`).join('')}</table><hr>
+    <hr><table>${body}</table><hr>
     <table>${o.discount > 0 ? `<tr><td>Ara Toplam</td><td class="r">${money(o.subtotal)}</td></tr><tr><td>İndirim</td><td class="r">-${money(o.discount)}</td></tr>` : ''}
     <tr class="b big"><td>TOPLAM</td><td class="r">${money(o.total)} TL</td></tr>
     ${pays.map((p) => `<tr><td>${METHODS[p.method] || p.method}</td><td class="r">${money(p.amount)}</td></tr>`).join('')}
@@ -280,8 +297,8 @@ export function receiptHtml(o, s, kind) {
     ${s.receipt_footer ? `<div class="c">${esc(s.receipt_footer)}</div>` : ''}<div class="c">Mali değeri yoktur</div>`;
 }
 
-export function kitchenHtml(o, items, userName) {
-  return `<div class="c b">MUTFAK</div><div class="c b big">${esc(o.label)}</div>
+export function kitchenHtml(o, items, userName, title = 'MUTFAK') {
+  return `<div class="c b">${esc(title.toLocaleUpperCase('tr'))}</div><div class="c b big">${esc(o.label)}</div>
     <table><tr><td>${dateTime(Date.now())}</td><td class="r">${esc(userName || '')}</td></tr></table><hr>
     ${items.map((i) => `<div class="b big">${qty(i.qty)} x ${esc(i.name)}</div>${i.note ? `<div class="b">&nbsp;&nbsp;&gt;&gt; ${esc(i.note)}</div>` : ''}`).join('')}
     ${o.note ? `<hr><div class="b">NOT: ${esc(o.note)}</div>` : ''}`;

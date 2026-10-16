@@ -159,11 +159,11 @@ input, select, textarea { font-family: inherit; -webkit-user-select: text; user-
 .pending-head span:nth-child(3) { text-align: right; }
 .pending-rows { flex: 1; overflow-y: auto; }
 .prow { display: grid; grid-template-columns: 1fr 60px 90px; padding: 8px 10px; font-size: 16px; border-bottom: 1px solid #f0f0f0; }
-.prow span:nth-child(2) { text-align: center; }
-.prow span:nth-child(3) { text-align: right; }
+.prow > span:nth-child(2) { text-align: center; }
+.prow > span:nth-child(3) { text-align: right; }
 .prow.sel { background: #ffe3b3; }
 .prow .note { display: block; font-size: 12px; color: #c05400; }
-.prow.free span:nth-child(3) { color: #1b8f2b; }
+.prow.free > span:nth-child(3) { color: #1b8f2b; }
 .customer-btn {
   margin: 6px 10px; height: 46px; border: 0; background: linear-gradient(90deg, #232b8e, #4b2a9e); color: #fff;
   font-size: clamp(16px, 1.6vw, 24px); font-weight: 800; font-style: italic; letter-spacing: 4px; transform: skewX(-6deg);
@@ -322,3 +322,29 @@ textarea.inp { height: auto; padding: 8px 10px; }
   .opts { grid-template-columns: 1fr; } .form { grid-template-columns: 1fr; } .form label { text-align: left; }
   .pay { grid-template-columns: 1fr; }
 }
+
+/* ürün notu düğmesi */
+.pnote-btn { border: 0; background: transparent; font-size: 15px; padding: 0 6px 0 0; opacity: .35; }
+.pnote-btn.has { opacity: 1; }
+
+/* hesap bölme */
+.seat-tag { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 3px; padding: 0 5px; margin-right: 5px; color: #fff; background: #8a96a3; }
+.seat-tag.s1 { background: #2b78c5; } .seat-tag.s2 { background: #d35400; } .seat-tag.s3 { background: #7d4bc2; } .seat-tag.s4 { background: #16a085; }
+.seat-tag.s5 { background: #c0392b; } .seat-tag.s6 { background: #8e7d00; } .seat-tag.s7 { background: #2c3e50; } .seat-tag.s8 { background: #e84393; }
+.seat-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.seat-tabs:empty { display: none; }
+.seat-tabs button { border: 1px solid #b9c6d2; background: #fff; padding: 5px 10px; font-size: 13px; border-radius: 3px; line-height: 1.3; }
+.seat-tabs button.active { background: var(--orange); color: #fff; border-color: var(--orange); }
+.seat-tabs button.paid { background: #e3f6e5; color: #1f8b31; }
+.seat-tabs button.paid.active { background: #1f8b31; color: #fff; }
+.split-help { background: #fffbe6; border: 1px solid #eedc9a; padding: 10px; margin: 10px 0; font-size: 15px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.split-cols { display: grid; gap: 8px; overflow-x: auto; }
+.split-col { background: #fff; border: 2px solid #d5dde3; min-height: 260px; padding-bottom: 8px; }
+.split-col.target { border-color: var(--orange); border-style: dashed; cursor: pointer; }
+.split-col[data-col="0"] { background: #f4f6f8; }
+.sc-head { padding: 8px; background: #eef2f5; font-weight: 700; display: flex; flex-direction: column; }
+.sc-head b { font-size: 18px; color: #1d63b8; }
+.sc-head small { color: #1f8b31; }
+.sc-item { display: block; width: calc(100% - 12px); margin: 6px 6px 0; text-align: left; border: 1px solid #d5dde3; background: #f8fafc; padding: 8px; font-size: 14px; }
+.sc-item span { float: right; font-weight: 700; }
+.sc-item.sel { background: #ffe3b3; border-color: var(--orange); }

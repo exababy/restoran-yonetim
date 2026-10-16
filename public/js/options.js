@@ -5,6 +5,7 @@ const num = (s) => Number(String(s).replace(',', '.')) || 0;
 
 const PANELS = [
   ['genel', 'Genel Ayarlar', 'admin'],
+  ['yazicilar', 'Yazıcılar', 'admin'],
   ['kullanicilar', 'Kullanıcılar', 'admin'],
   ['urunler', 'Ürünler', 'admin'],
   ['musteriler', 'Müşteriler', 'kasiyer'],
@@ -72,11 +73,9 @@ const RENDER = {
       ${field('İptal nedenleri', 'cancel_reasons', s, 'text', 'Virgülle ayırın')}
       ${field('Kasa çıkış açıklamaları', 'expense_presets', s, 'text', 'Virgülle ayırın')}
       <h4>Yazıcılar</h4>
-      ${field('Fiş yazıcısı (IP:port)', 'receipt_printer', s, 'text', 'Örn: 192.168.1.50:9100 — boş bırakılırsa Windows varsayılan yazıcısına tarayıcıdan yazdırılır')}
+      ${field('Hesap / adisyon fiş yazıcısı (IP:port)', 'receipt_printer', s, 'text', 'Örn: 192.168.1.50:9100 — boş bırakılırsa Windows varsayılan yazıcısına tarayıcıdan yazdırılır')}
       <label></label><div><button class="btn btn-sm" data-test="receipt_printer">Test Yazdır</button></div>
-      ${field('Mutfak yazıcısı (IP:port)', 'kitchen_printer', s, 'text', 'Boş ise mutfak fişi de varsayılan yazıcıdan çıkar')}
-      <label></label><div><button class="btn btn-sm" data-test="kitchen_printer">Test Yazdır</button></div>
-      ${field('Mutfak fişi yazdır', 'kitchen_ticket', s, 'check')}
+      ${field('Sipariş fişlerini yazdır', 'kitchen_ticket', s, 'check', 'Mutfak / içecek / ızgara gibi sipariş yazıcıları "Yazıcılar" bölümünden tanımlanır')}
       ${field('Ödeme sonrası fiş yazdır', 'print_receipt_after_payment', s, 'check')}
       ${field('Fiş karakter genişliği', 'printer_width', s, 'text', '80mm için 42 veya 48, 58mm için 32')}
     </div><div style="text-align:right;margin-top:14px"><button class="btn btn-green" id="saveGen" style="font-size:26px;padding:6px 30px">✔</button></div>`;
@@ -88,6 +87,56 @@ const RENDER = {
         try { await api('/api/print-test', { address: addr }); toast('Test gönderildi', 'ok'); } catch (er) { err(er); }
       }
       if (e.target.closest('#saveGen')) { try { await collectAndSave(c); } catch (er) { err(er); } }
+    };
+  },
+
+  // ---------- Yazıcılar (ürün / kategori bazlı sipariş fişi yönlendirme) ----------
+  async yazicilar(c) {
+    const [printers, cats, prods] = await Promise.all([api('/api/admin/printers'), api('/api/admin/categories'), api('/api/admin/products')]);
+    const pname = (id) => printers.find((p) => p.id === id)?.name;
+    const overrides = prods.filter((p) => p.active && p.printer_id !== null && p.printer_id !== undefined);
+    const opt = (sel, none) => `<option value="">${none}</option>` + printers.map((p) => `<option value="${p.id}" ${sel === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+    c.innerHTML = `<p class="muted" style="margin-top:0">Siparişler kaydedilince her ürün kendi yazıcısından çıkar. Örn: Kola → <b>İçecek</b> yazıcısı, Adana → <b>Mutfak</b> yazıcısı.
+      Yazıcı önce ürüne, ürüne atanmamışsa kategorisine göre seçilir.</p>
+      <div class="row" style="margin-bottom:8px"><b style="flex:1">Sipariş Yazıcıları</b><button class="btn btn-green btn-sm" id="prNew">+ Yazıcı Ekle</button></div>
+      <table class="tbl"><tr><th>Ad</th><th>Adres (IP:port)</th><th>Durum</th><th></th></tr>
+      ${printers.map((p) => `<tr class="${p.active ? '' : 'off'}"><td><b>${esc(p.name)}</b></td><td class="mono">${esc(p.address) || '<span class="muted">Varsayılan Windows yazıcısı</span>'}</td>
+        <td>${p.active ? 'Aktif' : 'Kapalı'}</td><td class="r"><button class="btn btn-sm" data-ptest="${p.id}">Test</button>
+        <button class="btn btn-sm" data-pedit="${p.id}">Düzenle</button><button class="btn btn-sm btn-red" data-pdel="${p.id}">Sil</button></td></tr>`).join('')}</table>
+      <div class="section-title">Kategori → Yazıcı</div>
+      <table class="tbl"><tr><th>Kategori</th><th>Yazıcı</th></tr>
+      ${cats.map((k) => `<tr><td>${esc(k.name)}</td><td><select class="inp" data-catp="${k.id}">${opt(k.printer_id, '— Yazdırma —')}</select></td></tr>`).join('')}</table>
+      <div class="section-title">Ürüne Özel Yazıcı ${overrides.length ? '' : '<span class="muted" style="font-size:13px">(yok — Ürünler › Düzenle ekranından atanabilir)</span>'}</div>
+      ${overrides.length ? `<table class="tbl"><tr><th>Ürün</th><th>Yazıcı</th></tr>${overrides.map((p) => `<tr><td>${esc(p.name)}</td><td>${p.printer_id ? esc(pname(p.printer_id) || '?') : 'Yazdırma'}</td></tr>`).join('')}</table>` : ''}`;
+    const editPrinter = async (p = { name: '', address: '', active: 1 }) => {
+      const b = document.createElement('div');
+      b.innerHTML = `<div class="form"><label>Yazıcı Adı</label><input class="inp" name="name" value="${esc(p.name)}" placeholder="Örn: İçecek, Izgara, Bar">
+        <label>Adres (IP:port)</label><input class="inp" name="address" value="${esc(p.address)}" placeholder="192.168.1.51:9100">
+        <div class="hint">Ağ (Ethernet) termal yazıcının IP adresi. Boş bırakılırsa fiş kasadaki varsayılan Windows yazıcısından çıkar.</div>
+        <label>Aktif</label><input type="checkbox" class="chk" name="active" ${p.active ? 'checked' : ''}></div>`;
+      return modal({ title: p.id ? 'Yazıcı Düzenle' : 'Yeni Yazıcı', body: b, buttons: [{ label: 'Vazgeç', cls: 'btn-red' }, {
+        label: 'Kaydet', cls: 'btn-green', onClick: async () => {
+          try { await api('/api/admin/printers/save', { id: p.id, name: $('[name=name]', b).value.trim(), address: $('[name=address]', b).value.trim(), active: $('[name=active]', b).checked }); return true; } catch (e) { err(e); return false; }
+        },
+      }] });
+    };
+    c.onchange = async (e) => {
+      const sel = e.target.closest('[data-catp]');
+      if (sel) { try { await api('/api/admin/categories/save', { id: Number(sel.dataset.catp), printer_id: Number(sel.value) || null }); toast('Kaydedildi', 'ok', 1000); } catch (er) { err(er); } }
+    };
+    c.onclick = async (e) => {
+      try {
+        if (e.target.closest('#prNew')) { if (await editPrinter()) RENDER.yazicilar(c); return; }
+        const ed = e.target.closest('[data-pedit]'); if (ed) { if (await editPrinter(printers.find((p) => p.id === Number(ed.dataset.pedit)))) RENDER.yazicilar(c); return; }
+        const d = e.target.closest('[data-pdel]');
+        if (d && await confirmBox('Yazıcı silinsin mi? Bağlı kategoriler yazdırmaz hale gelir.')) { await api('/api/admin/printers/delete', { id: Number(d.dataset.pdel) }); RENDER.yazicilar(c); return; }
+        const t = e.target.closest('[data-ptest]');
+        if (t) {
+          const p = printers.find((x) => x.id === Number(t.dataset.ptest));
+          if (!p.address) printHtml(`<div class="c b big">${esc(p.name.toLocaleUpperCase('tr'))}</div><div class="c">TEST YAZDIRMA</div><div class="c">ÇçĞğİıÖöŞşÜü</div>`);
+          else { await api('/api/print-test', { address: p.address }); toast('Test gönderildi', 'ok'); }
+        }
+      } catch (er) { err(er); }
     };
   },
 
@@ -126,7 +175,7 @@ const RENDER = {
 
   // ---------- Ürünler ----------
   async urunler(c, ctx, state = {}) {
-    const [cats, prods] = await Promise.all([api('/api/admin/categories'), api('/api/admin/products')]);
+    const [cats, prods, printers] = await Promise.all([api('/api/admin/categories'), api('/api/admin/products'), api('/api/admin/printers')]);
     let catId = state.catId ?? cats[0]?.id;
     const showInactive = !!state.inactive;
     const list = prods.filter((p) => p.category_id === catId && (showInactive || p.active));
@@ -150,14 +199,18 @@ const RENDER = {
       b.innerHTML = `<div class="form"><label>Ürün Adı</label><input class="inp" name="name" value="${esc(p.name || '')}">
         <label>Fiyat (TL)</label><input class="inp" name="price" inputmode="decimal" value="${String(p.price).replace('.', ',')}">
         <label>Kategori</label><select class="inp" name="category_id">${cats.map((k) => `<option value="${k.id}" ${k.id === p.category_id ? 'selected' : ''}>${esc(k.name)}</option>`).join('')}</select>
-        <label>Mutfağa gönder</label><input type="checkbox" class="chk" name="kitchen" ${p.kitchen ? 'checked' : ''}>
+        <label>Mutfak ekranına düşsün</label><input type="checkbox" class="chk" name="kitchen" ${p.kitchen ? 'checked' : ''}>
+        <label>Sipariş yazıcısı</label><select class="inp" name="printer_id">
+          <option value="" ${p.printer_id == null ? 'selected' : ''}>Kategori yazıcısı (varsayılan)</option>
+          <option value="0" ${p.printer_id === 0 ? 'selected' : ''}>— Yazdırma —</option>
+          ${printers.map((x) => `<option value="${x.id}" ${p.printer_id === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
         <label>Satışta fiyat sor</label><input type="checkbox" class="chk" name="ask_price" ${p.ask_price ? 'checked' : ''}>
         <div class="hint">Joker / açık fiyatlı ürünler için</div></div>`;
       const ok = await modal({ title: p.id ? 'Ürün Düzenle' : 'Yeni Ürün', body: b, onOpen: () => $('[name=name]', b).focus(), buttons: [{ label: 'Vazgeç', cls: 'btn-red' }, {
         label: 'Kaydet', cls: 'btn-green', onClick: async () => {
           try {
             await api('/api/admin/products/save', { id: p.id, name: $('[name=name]', b).value.trim(), price: num($('[name=price]', b).value),
-              category_id: Number($('[name=category_id]', b).value), kitchen: $('[name=kitchen]', b).checked, ask_price: $('[name=ask_price]', b).checked, sort: p.sort, active: 1 });
+              category_id: Number($('[name=category_id]', b).value), printer_id: $('[name=printer_id]', b).value === '' ? null : Number($('[name=printer_id]', b).value), kitchen: $('[name=kitchen]', b).checked, ask_price: $('[name=ask_price]', b).checked, sort: p.sort, active: 1 });
             return true;
           } catch (e) { err(e); return false; }
         },

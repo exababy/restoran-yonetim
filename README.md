@@ -44,6 +44,14 @@ Tüm ekranlar **anlık senkronize** çalışır: garsonun girdiği sipariş kasa
 - **Gün Sonu (Z raporu)**, **Kasa Çıkış** (gider), **Tahsilat İptal** (adisyonu yeniden açar), **İşlem Geçmişi** (log).
 - **Toplu fiyat güncelleme** (% artış + 5/10 TL yuvarlama) – enflasyon dönemi için.
 - **Yetki seviyeleri**: Yönetici / Kasiyer / Garson. PIN ile hızlı kullanıcı değiştirme (🔒).
+- **Ürün bazlı yazıcı yönlendirme**: her ürün kendi yazıcısından çıkar (Kola → İçecek yazıcısı, Adana → Mutfak yazıcısı).
+  Yazıcı önce ürüne, yoksa kategorisine göre seçilir; istenen kadar yazıcı (Mutfak, İçecek, Izgara, Bar…) tanımlanabilir
+  (Seçenekler › Yazıcılar).
+- **Hesabı kişilere bölme**: masayı 2–20 kişiye (örn. 4) böl, ürünleri kişilere ata, ortak ürünü (2+1 karışık gibi) herkese
+  eşit paylaştır, "1 adedini ayır" ile 2 porsiyonu iki kişiye dağıt. Her kişi kendi payını ayrı öder (nakit/kart karışık),
+  indirim paylara oransal dağılır. **Fiş tek çıkar**: kişi kişi bölümlü, her kişinin toplamı ve ödeme durumu yazar.
+- **Notlar**: her ürüne ayrı not (listede ürünün yanındaki 📝), **toplu not** (📄: bekleyen tüm ürünlere ekle veya
+  adisyon notu olarak fişin altına yaz). Garson terminalinde de ürün notu ve toplu not var.
 - **Yazıcı**: ağ (Ethernet) termal yazıcılara doğrudan ESC/POS (Türkçe karakter destekli) + para çekmecesi açma;
   USB yazıcılarda Windows varsayılan yazıcısına sessiz yazdırma. Ayrı mutfak yazıcısı desteği.
 - **Yedekleme**: tek tuşla veritabanı yedeği indirme.

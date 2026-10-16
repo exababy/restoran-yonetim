@@ -128,3 +128,63 @@ test('toplu fiyat güncelleme yuvarlar', async () => {
   assert.equal(prods.find((p) => p.name === 'Künefe').price, 240); // 220*1.1=242 → 240
   await assert.rejects(call(garson, '/api/admin/products/bulk-price', { percent: 10 }), { status: 403 });
 });
+
+test('her ürün kendi yazıcısından çıkar (kola → içecek yazıcısı)', async () => {
+  const net = await import('node:net');
+  const received = [];
+  const srv = net.createServer((s) => { const chunks = []; s.on('data', (d) => chunks.push(d)); s.on('end', () => received.push(Buffer.concat(chunks).toString('latin1'))); });
+  await new Promise((r) => srv.listen(0, r));
+  const boot = await call(admin, '/api/bootstrap');
+  const icecek = boot.printers.find((p) => p.name === 'İçecek');
+  const mutfak = boot.printers.find((p) => p.name === 'Mutfak');
+  await call(admin, '/api/admin/printers/save', { id: icecek.id, address: `127.0.0.1:${srv.address().port}` });
+  const kola = boot.products.find((p) => p.name === 'Kola');
+  const adana = boot.products.find((p) => p.name === 'Adana pors.');
+  const r = await call(garson, '/api/orders/add-items', { table_id: boot.tables[20].id, items: [{ product_id: kola.id, qty: 2 }, { product_id: adana.id, qty: 1, note: 'acılı' }] });
+  // mutfak yazıcısının adresi yok → tarayıcıdan basılacak fiş olarak döner, kola içinde olmamalı
+  assert.equal(r.browser_tickets.length, 1);
+  assert.equal(r.browser_tickets[0].title, mutfak.name);
+  assert.deepEqual(r.browser_tickets[0].items.map((i) => i.name), ['Adana pors.']);
+  for (let i = 0; i < 30 && !received.length; i++) await new Promise((res) => setTimeout(res, 50));
+  srv.close();
+  assert.equal(received.length, 1);
+  assert.ok(received[0].includes('Kola'));
+  assert.ok(!received[0].includes('Adana'));
+  // ürüne özel yazıcı kategoriyi ezer; 0 = hiç yazdırma
+  await call(admin, '/api/admin/products/save', { id: adana.id, printer_id: 0 });
+  const r2 = await call(garson, '/api/orders/add-items', { table_id: boot.tables[20].id, items: [{ product_id: adana.id, qty: 1 }] });
+  assert.equal(r2.browser_tickets.length, 0);
+  await call(admin, '/api/admin/products/save', { id: adana.id, printer_id: null });
+  await call(admin, '/api/admin/printers/save', { id: icecek.id, address: '' });
+});
+
+test('masayı 4 kişiye böl, herkes kendi payını öder', async () => {
+  const boot = await call(admin, '/api/bootstrap');
+  const p = (n) => boot.products.find((x) => x.name === n);
+  let o = (await call(admin, '/api/orders/add-items', { table_id: boot.tables[30].id, items: [
+    { product_id: p('Adana pors.').id, qty: 2 }, { product_id: p('Beyti Kebap').id, qty: 1 }, { product_id: p('Ayran').id, qty: 4 },
+    { product_id: p('2+1 KARIŞIK').id, qty: 1 }] })).order;
+  o = await call(admin, `/api/orders/${o.id}/split`, { count: 4 });
+  assert.equal(o.seats.length, 5); // ortak + 4 kişi
+  const line = (name) => o.items.find((i) => i.name === name && i.status === 'active');
+  // 2 Adana: 1'ini ayır → 1. ve 2. kişiye
+  o = await call(admin, `/api/items/${line('Adana pors.').id}/split`, { parts: [{ qty: 1, seat: 1 }, { qty: 1, seat: 2 }] });
+  o = await call(admin, '/api/items/assign', { ids: [line('Beyti Kebap').id], seat: 3 });
+  // 4 ayran herkese paylaştır, karışık 4'e bölünür
+  o = await call(admin, `/api/items/${line('Ayran').id}/split`, { parts: [1, 2, 3, 4].map((s) => ({ qty: 1, seat: s })) });
+  o = await call(admin, `/api/items/${line('2+1 KARIŞIK').id}/split`, { parts: [1, 2, 3, 4].map((s) => ({ qty: 0.25, seat: s })) });
+  assert.equal(o.total, 2 * 690 + 710 + 200 + 1850);
+  const share = (s) => o.seats.find((g) => g.seat === s);
+  assert.equal(share(1).share, 690 + 50 + 462.5);
+  assert.equal(share(4).share, 50 + 462.5);
+  assert.equal(share(0).share, 0);
+  // kişinin payından fazlası alınamaz
+  await assert.rejects(call(admin, `/api/orders/${o.id}/pay`, { method: 'nakit', amount: 600, seat: 4 }));
+  let r;
+  for (const s of [1, 2, 3, 4]) {
+    r = await call(admin, `/api/orders/${o.id}/pay`, { method: s % 2 ? 'kart' : 'nakit', amount: share(s).remaining, seat: s });
+    if (s < 4) assert.equal(r.closed, false);
+    assert.equal(r.order.seats.find((g) => g.seat === s).remaining, 0);
+  }
+  assert.equal(r.closed, true);
+});

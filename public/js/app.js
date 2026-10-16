@@ -1,6 +1,6 @@
 import {
   $, $$, esc, money, qty, dateTime, duration, hm, api, ensureSession, connectEvents, toast, beep, modal, confirmBox,
-  textPrompt, numberPrompt, numpad, printHtml, receiptHtml, kitchenHtml, logout, loginScreen, METHODS,
+  textPrompt, numberPrompt, numpad, printHtml, receiptHtml, kitchenHtml, logout, loginScreen, METHODS, seatName,
 } from './common.js';
 import { openOptions } from './options.js';
 
@@ -328,7 +328,7 @@ function renderDetails() {
   if (!o) { tb.innerHTML = ''; return; }
   let html = o.items.map((i) => `<tr class="${i.status === 'cancelled' ? 'cancelled' : ''} ${S.detailSel.has(i.id) ? 'sel' : ''}" data-item="${i.id}">
     <td class="user">${esc(i.user_name || '')}</td>
-    <td>${qty(i.qty)} x ${esc(i.name)}${i.free ? '<span class="free-tag">İKRAM</span>' : ''}<span class="ks">${KS_ICON[i.kitchen_status] || ''}</span>
+    <td>${o.seats && i.status === 'active' ? `<span class="seat-tag s${i.seat || 0}">${i.seat ? 'K' + i.seat : 'Ortak'}</span>` : ''}${qty(i.qty)} x ${esc(i.name)}${i.free ? '<span class="free-tag">İKRAM</span>' : ''}<span class="ks">${KS_ICON[i.kitchen_status] || ''}</span>
       ${i.note ? `<span class="note">» ${esc(i.note)}</span>` : ''}${i.status === 'cancelled' ? `<span class="note">İptal: ${esc(i.cancel_reason)}</span>` : ''}</td>
     <td class="c-copy">${i.status === 'active' ? `<button class="copy-btn" data-copy="${i.id}">Kopyala</button>` : ''}</td>
     <td class="c-price">${money(i.unit_price)}</td><td class="c-total">${i.free ? '0,00' : money(i.qty * i.unit_price)}</td></tr>`).join('');
@@ -340,7 +340,7 @@ function renderDetails() {
 
 function renderPending() {
   $('#pendingRows').innerHTML = S.pending.map((p, i) => `<div class="prow ${i === S.pendingSel ? 'sel' : ''} ${p.free ? 'free' : ''}" data-p="${i}">
-    <span>${esc(p.name)}${p.note ? `<span class="note">» ${esc(p.note)}</span>` : ''}</span><span>${qty(p.qty)}</span>
+    <span><button class="pnote-btn ${p.note ? 'has' : ''}" data-pnote="${i}" title="Ürün notu">📝</button>${esc(p.name)}${p.note ? `<span class="note">» ${esc(p.note)}</span>` : ''}</span><span>${qty(p.qty)}</span>
     <span>${p.free ? 'İkram' : money(p.qty * p.price)}</span></div>`).join('');
   const total = S.pending.reduce((s, p) => s + (p.free ? 0 : p.qty * p.price), 0);
   $('#pendingTotal').textContent = money(total) + ' TL';
@@ -419,9 +419,7 @@ async function save() {
     });
     S.cur.orderId = r.order.id;
     S.order = r.order;
-    if (!noPrint && r.kitchen_items.length && setting('kitchen_ticket') === '1' && !r.kitchen_printed) {
-      printHtml(kitchenHtml(r.order, r.kitchen_items, S.boot.me.name));
-    }
+    for (const t of r.browser_tickets || []) printHtml(kitchenHtml(r.order, t.items, S.boot.me.name, t.title));
     clearPending();
     toast('Kaydedildi: ' + r.order.label, 'ok', 1800);
     if (setting('go_tables_after_save') === '1') S.view = 'masa';
@@ -523,12 +521,35 @@ async function setAlarm() {
   } catch (e) { err(e); }
 }
 
+// Toplu not: adisyon notu (fişlerin altına) veya listedeki tüm ürünlere ayrı ayrı eklenen not
 async function editOrderNote() {
-  const cur = S.order?.note || S.pendingNote;
-  const n = await textPrompt('Adisyon Notu', { value: cur, presets: listSetting('quick_notes'), multi: true });
-  if (n === undefined) return;
-  if (S.order) { try { S.order = await api(`/api/orders/${S.order.id}/update`, { note: n }); } catch (e) { return err(e); } }
-  else S.pendingNote = n;
+  const body = document.createElement('div');
+  const cur = S.order?.note ?? S.pendingNote;
+  body.innerHTML = `<div class="chips">${listSetting('quick_notes').map((p) => `<button class="chip">${esc(p)}</button>`).join('')}</div>
+    <textarea class="inp big" rows="3" style="height:90px" placeholder="Not yazın...">${esc(cur || '')}</textarea>
+    <div class="msg" style="font-size:14px;color:#667;padding-top:10px">
+      <b>Adisyon Notu:</b> masanın tüm siparişine ait not; mutfak fişlerinin altına ve adisyona yazılır.<br>
+      <b>Tüm Ürünlere Ekle:</b> listede bekleyen ${S.pending.length} ürünün her birine ayrı ayrı not olarak eklenir.<br>
+      Tek bir ürüne not için listedeki ürünün yanındaki 📝 simgesine dokunun.</div>`;
+  const ta = $('textarea', body);
+  body.addEventListener('click', (e) => { const c = e.target.closest('.chip'); if (c) { ta.value = ta.value.trim() ? ta.value.trim() + ', ' + c.textContent : c.textContent; ta.focus(); } });
+  const r = await modal({
+    title: 'Toplu Not', body,
+    onOpen: () => ta.focus(),
+    buttons: [
+      { label: 'Notu Sil', cls: 'btn-red', onClick: () => ({ mode: 'order', text: '' }) },
+      { label: 'Tüm Ürünlere Ekle', cls: 'btn-orange', onClick: () => (S.pending.length ? { mode: 'items', text: ta.value.trim() } : (toast('Listede bekleyen ürün yok', 'warn'), false)) },
+      { label: 'Adisyon Notu', cls: 'btn-green', onClick: () => ({ mode: 'order', text: ta.value.trim() }) },
+    ],
+  });
+  if (!r) return;
+  if (r.mode === 'items') {
+    if (!r.text) return;
+    for (const p of S.pending) p.note = p.note ? (p.note.includes(r.text) ? p.note : p.note + ', ' + r.text) : r.text;
+    toast(`${S.pending.length} ürüne not eklendi`, 'ok', 1500);
+  } else if (S.order) {
+    try { S.order = await api(`/api/orders/${S.order.id}/update`, { note: r.text }); } catch (e) { return err(e); }
+  } else S.pendingNote = r.text;
   renderAll();
 }
 
@@ -646,13 +667,13 @@ async function voidAction() {
 async function payment() {
   if (!S.order) return;
   let o = S.order;
+  let seat = null; // null = tüm adisyon, 0 = ortak, 1..n = kişi
   const body = document.createElement('div');
   body.className = 'pay';
-  let given = 0;
-  const pad = numpad({ value: '', onChange: () => {} });
-  body.innerHTML = `<div><div class="pay-sum" id="paySum"></div>
+  const pad = numpad({ value: '' });
+  body.innerHTML = `<div><div class="seat-tabs" id="seatTabs"></div><div class="pay-sum" id="paySum"></div>
       <div class="row" style="margin-top:8px"><button class="btn btn-sm" id="payAll">Tamamı</button><button class="btn btn-sm" id="payPerson">Kişi Başı</button>
-      <button class="btn btn-sm" id="paySplit">Böl (n)</button></div>
+      <button class="btn btn-sm" id="paySplit">Eşit Böl (n)</button><button class="btn btn-sm btn-orange" id="paySeats">👥 Hesabı Kişilere Böl</button></div>
       <div class="pay-items" id="payItems"></div></div>
     <div><div id="padHost"></div><div class="pay-quick">${[20, 50, 100, 200, 500, 1000].map((v) => `<button data-cash="${v}">${v} ₺</button>`).join('')}</div>
       <div id="payChange"></div></div>
@@ -662,46 +683,69 @@ async function payment() {
       <button class="btn btn-purple" data-method="yemek">🍽 Yemek Kartı</button>
       <button class="btn btn-orange" data-method="cari">📒 Cari / Veresiye</button>
       <label class="row" style="margin-top:6px"><input type="checkbox" id="payPrint" ${setting('print_receipt_after_payment') === '1' ? 'checked' : ''}> Kapanınca fiş yazdır</label>
-      <button class="btn" id="payPrintNow">🖨 Hesap Fişi</button>
+      <button class="btn" id="payPrintNow">🖨 Hesap Fişi (tek fiş)</button>
       <div class="pay-list" id="payList"></div>
     </div>`;
   $('#padHost', body).appendChild(pad);
+  const group = () => (seat === null || !o.seats ? null : o.seats.find((g) => g.seat === seat));
+  const due = () => (group() ? Math.max(0, group().remaining) : o.remaining);
+  const nextUnpaid = () => o.seats?.find((g) => g.seat > 0 && g.count && g.remaining > 0.009)?.seat
+    ?? o.seats?.find((g) => g.count && g.remaining > 0.009)?.seat ?? null;
   const renderSum = () => {
-    $('#paySum', body).innerHTML = `<span>Ara Toplam</span><b class="r">${money(o.subtotal)}</b>
-      ${o.discount ? `<span>İndirim</span><b class="r">-${money(o.discount)}</b>` : ''}
-      <span>Toplam</span><b class="r">${money(o.total)}</b><span>Ödenen</span><b class="r ok">${money(o.paid)}</b>
-      <span>KALAN</span><span class="r big">${money(o.remaining)}</span>`;
-    $('#payItems', body).innerHTML = o.items.filter((i) => i.status === 'active' && !i.free).map((i) =>
-      `<label><input type="checkbox" data-amt="${i.qty * i.unit_price}"><span>${qty(i.qty)} x ${esc(i.name)}</span><b>${money(i.qty * i.unit_price)}</b></label>`).join('');
-    $('#payList', body).innerHTML = o.payments.filter((p) => !p.cancelled).map((p) => `${METHODS[p.method]}: <b>${money(p.amount)}</b> (${hm(p.created_at)})`).join('<br>');
-    pad.set(o.remaining > 0 ? String(o.remaining) : '');
+    const g = group();
+    $('#seatTabs', body).innerHTML = o.seats ? `<button class="${seat === null ? 'active' : ''}" data-seat="">Tümü<br><b>${money(o.remaining)}</b></button>` +
+      o.seats.filter((x) => x.count || x.paid).map((x) => `<button class="${seat === x.seat ? 'active' : ''} ${x.remaining <= 0.009 ? 'paid' : ''}" data-seat="${x.seat}">
+        ${seatName(x.seat)}${x.remaining <= 0.009 ? ' ✔' : ''}<br><b>${money(Math.max(0, x.remaining))}</b></button>`).join('') : '';
+    $('#paySum', body).innerHTML = g
+      ? `<span>${seatName(g.seat)} payı</span><b class="r">${money(g.share)}</b><span>Ödenen</span><b class="r ok">${money(g.paid)}</b>
+         <span>KALAN (${seatName(g.seat)})</span><span class="r big">${money(Math.max(0, g.remaining))}</span>
+         <span class="muted">Adisyon kalanı</span><span class="r muted">${money(o.remaining)}</span>`
+      : `<span>Ara Toplam</span><b class="r">${money(o.subtotal)}</b>
+         ${o.discount ? `<span>İndirim</span><b class="r">-${money(o.discount)}</b>` : ''}
+         <span>Toplam</span><b class="r">${money(o.total)}</b><span>Ödenen</span><b class="r ok">${money(o.paid)}</b>
+         <span>KALAN</span><span class="r big">${money(o.remaining)}</span>`;
+    const items = o.items.filter((i) => i.status === 'active' && !i.free && (seat === null || (i.seat || 0) === seat));
+    $('#payItems', body).innerHTML = items.map((i) =>
+      `<label><input type="checkbox" data-amt="${i.qty * i.unit_price}"><span>${o.seats ? `<span class="seat-tag s${i.seat || 0}">${i.seat ? 'K' + i.seat : 'Ortak'}</span>` : ''}${qty(i.qty)} x ${esc(i.name)}</span><b>${money(i.qty * i.unit_price)}</b></label>`).join('');
+    $('#payList', body).innerHTML = o.payments.filter((p) => !p.cancelled).map((p) =>
+      `${o.seats ? seatName(p.seat) + ' · ' : ''}${METHODS[p.method]}: <b>${money(p.amount)}</b> (${hm(p.created_at)})`).join('<br>');
+    pad.set(due() > 0 ? String(due()) : '');
   };
+  if (o.seats) seat = nextUnpaid();
   renderSum();
   body.addEventListener('change', (e) => {
     if (!e.target.dataset.amt) return;
     const sum = $$('[data-amt]', body).filter((c) => c.checked).reduce((s, c) => s + Number(c.dataset.amt), 0);
-    pad.set(sum ? String(Math.round(Math.min(sum, o.remaining) * 100) / 100) : String(o.remaining));
+    pad.set(sum ? String(Math.round(Math.min(sum, due()) * 100) / 100) : String(due()));
   });
-  $('#payAll', body).onclick = () => pad.set(String(o.remaining));
+  $('#payAll', body).onclick = () => { seat = null; renderSum(); };
   $('#payPerson', body).onclick = () => {
     const n = o.guests || 1;
     pad.set(String(Math.ceil((o.remaining / n) * 100) / 100));
-    toast(`${n} kişiye bölündü`, 'info', 1500);
+    toast(`${n} kişiye eşit bölündü`, 'info', 1500);
   };
   $('#paySplit', body).onclick = async () => {
-    const n = await numberPrompt('Kaç parçaya bölünsün?', { decimals: false, value: o.guests || 2 });
+    const n = await numberPrompt('Kaç eşit parçaya bölünsün?', { decimals: false, value: o.guests || 2 });
     if (n > 0) pad.set(String(Math.ceil((o.remaining / n) * 100) / 100));
+  };
+  $('#paySeats', body).onclick = async () => {
+    const r = await splitDialog(o);
+    try { o = r || await api('/api/orders/' + o.id); } catch {}
+    seat = o.seats ? nextUnpaid() : null;
+    renderSum();
   };
   $('#payPrintNow', body).onclick = () => printOrder('receipt', o);
   body.addEventListener('click', (e) => {
     const c = e.target.closest('[data-cash]');
-    if (c) { given = Number(c.dataset.cash); pad.set(String(given)); }
+    if (c) pad.set(c.dataset.cash);
+    const st = e.target.closest('[data-seat]');
+    if (st) { seat = st.dataset.seat === '' ? null : Number(st.dataset.seat); renderSum(); }
   });
   const onKey = (e) => { if (e.key === 'Enter') body.querySelector('[data-method=nakit]').click(); else pad.keyHandler(e); };
   document.addEventListener('keydown', onKey);
 
   await modal({
-    title: `Ödeme — ${o.label}`, body, cls: '',
+    title: `Ödeme — ${o.label}`, body,
     onOpen: (w, close) => {
       body.querySelector('.pay-methods').addEventListener('click', async (e) => {
         const b = e.target.closest('[data-method]'); if (!b) return;
@@ -713,10 +757,11 @@ async function payment() {
         }
         if (!(amount > 0)) return toast('Tutar girin', 'warn');
         let change = 0;
-        if (amount > o.remaining + 0.009) {
+        const limit = due();
+        if (amount > limit + 0.009) {
           if (method !== 'nakit') return toast('Kart/cari ödemesi kalan tutardan büyük olamaz', 'warn');
-          change = Math.round((amount - o.remaining) * 100) / 100;
-          amount = o.remaining;
+          change = Math.round((amount - limit) * 100) / 100;
+          amount = limit;
         }
         let customer_id;
         if (method === 'cari' && !o.customer_id) {
@@ -726,14 +771,17 @@ async function payment() {
         }
         b.disabled = true;
         try {
-          const r = await api(`/api/orders/${o.id}/pay`, { method, amount, customer_id });
+          const r = await api(`/api/orders/${o.id}/pay`, { method, amount, customer_id, seat: group() ? seat : undefined });
           o = r.order;
-          if (change > 0) $('#payChange', body).innerHTML = `<div class="pay-change">PARA ÜSTÜ: ${money(change)} TL</div>`;
+          $('#payChange', body).innerHTML = change > 0 ? `<div class="pay-change">PARA ÜSTÜ: ${money(change)} TL</div>` : '';
           if (r.closed) {
             toast(`Adisyon kapandı${change > 0 ? ' — Para üstü: ' + money(change) + ' TL' : ''}`, 'ok', 5000);
             if ($('#payPrint', body).checked) printOrder('receipt', o);
             close(true);
-          } else renderSum();
+          } else {
+            if (group() && group().remaining <= 0.009) { toast(`${seatName(seat)} ödedi ✔`, 'ok', 1500); seat = nextUnpaid(); }
+            renderSum();
+          }
         } catch (er) { err(er); } finally { b.disabled = false; }
       });
     },
@@ -741,6 +789,67 @@ async function payment() {
   document.removeEventListener('keydown', onKey);
   S.detailSel.clear();
   await refreshState();
+}
+
+// Hesabı kişilere bölme: ürünler kişilere atanır, her kişi kendi payını öder, fiş tek çıkar
+async function splitDialog(order) {
+  let o = order;
+  let n = o.split_count || o.guests || 4;
+  if (n < 2) n = 2;
+  let sel = null;
+  const body = document.createElement('div');
+  try { if (o.split_count !== n) o = await api(`/api/orders/${o.id}/split`, { count: n }); } catch (e) { err(e); return null; }
+  const item = () => o.items.find((i) => i.id === sel && i.status === 'active');
+  const render = () => {
+    if (!item()) sel = null;
+    const it = item();
+    body.innerHTML = `<div class="row"><b>Kişi sayısı:</b>${[2, 3, 4, 5, 6, 8].map((k) => `<button class="chip ${k === n ? 'active' : ''}" data-n="${k}">${k}</button>`).join('')}
+        <button class="chip" data-n="other">Diğer</button><span style="flex:1"></span><button class="btn btn-sm btn-red" data-n="0">Bölmeyi Kaldır</button></div>
+      <div class="split-help">${it ? `Seçili: <b>${qty(it.qty)} x ${esc(it.name)}</b> → şimdi kişinin sütununa dokunun.
+          ${it.qty > 1 ? '<button class="btn btn-sm" data-act="one">1 adedini ayır</button>' : ''}
+          <button class="btn btn-sm btn-blue" data-act="share">Herkese eşit paylaştır</button>
+          <button class="btn btn-sm" data-act="common">Ortağa al</button>`
+        : 'Bir ürüne dokunun, sonra hangi kişiye ait olduğunu seçmek için o kişinin sütununa dokunun.'}</div>
+      <div class="split-cols" style="grid-template-columns:repeat(${n + 1}, minmax(140px, 1fr))">${o.seats.map((g) => `
+        <div class="split-col ${it ? 'target' : ''}" data-col="${g.seat}">
+          <div class="sc-head">${seatName(g.seat)}<b>${money(g.share)}</b>${g.paid ? `<small>Ödenen ${money(g.paid)}</small>` : ''}</div>
+          ${o.items.filter((i) => i.status === 'active' && (i.seat || 0) === g.seat).map((i) => `<button class="sc-item ${i.id === sel ? 'sel' : ''}" data-iid="${i.id}">
+            ${qty(i.qty)} x ${esc(i.name)}<span>${i.free ? 'İkram' : money(i.qty * i.unit_price)}</span></button>`).join('')}
+        </div>`).join('')}</div>`;
+  };
+  render();
+  const act = async (fn) => { try { o = await fn(); } catch (e) { err(e); } render(); };
+  return modal({
+    title: `Hesabı Böl — ${o.label}`, body, cls: 'modal-lg',
+    onOpen: (w, close) => body.addEventListener('click', async (e) => {
+      const nb = e.target.closest('[data-n]');
+      if (nb) {
+        let k = nb.dataset.n === 'other' ? await numberPrompt('Kişi sayısı', { decimals: false }) : Number(nb.dataset.n);
+        if (k === undefined || k === 1 || k > 20) return;
+        try { o = await api(`/api/orders/${o.id}/split`, { count: k }); } catch (er) { return err(er); }
+        if (!k) return close(o);
+        n = k; render(); return;
+      }
+      const ib = e.target.closest('[data-iid]');
+      if (ib) { const id = Number(ib.dataset.iid); sel = sel === id ? null : id; render(); return; }
+      const ab = e.target.closest('[data-act]');
+      if (ab && item()) {
+        const it = item();
+        if (ab.dataset.act === 'one') return act(() => api(`/api/items/${it.id}/split`, { parts: [{ qty: 1, seat: it.seat || 0 }, { qty: Math.round((it.qty - 1) * 100) / 100, seat: it.seat || 0 }] }));
+        if (ab.dataset.act === 'common') { sel = null; return act(() => api('/api/items/assign', { ids: [it.id], seat: 0 })); }
+        if (ab.dataset.act === 'share') {
+          const part = Math.floor((it.qty / n) * 100) / 100;
+          const parts = Array.from({ length: n }, (_, k) => ({ qty: part, seat: k + 1 }));
+          parts[n - 1].qty = Math.round((it.qty - part * (n - 1)) * 100) / 100;
+          sel = null;
+          return act(() => api(`/api/items/${it.id}/split`, { parts }));
+        }
+      }
+      const col = e.target.closest('[data-col]');
+      if (col && item()) { const id = sel; sel = null; act(() => api('/api/items/assign', { ids: [id], seat: Number(col.dataset.col) })); }
+    }),
+    buttons: [{ label: '✔ Tamam — Ödemeye Geç', cls: 'btn-green', onClick: () => o }],
+  });
 }
 
 // ---------------- SAAT: açık adisyon özeti ----------------
@@ -803,7 +912,11 @@ function bindUi() {
     if (b) { S.view = 'satis'; renderAll(); }
   });
   $('#mults').onclick = (e) => { const b = e.target.closest('button'); if (b) { S.mult = Number(b.dataset.m); renderPending(); } };
-  $('#pendingRows').onclick = (e) => { const r = e.target.closest('[data-p]'); if (r) { S.pendingSel = Number(r.dataset.p); renderPending(); } };
+  $('#pendingRows').onclick = (e) => {
+    const n = e.target.closest('[data-pnote]');
+    if (n) { S.pendingSel = Number(n.dataset.pnote); renderPending(); editPendingNote(S.pendingSel); return; }
+    const r = e.target.closest('[data-p]'); if (r) { S.pendingSel = Number(r.dataset.p); renderPending(); }
+  };
   $('#pendingRows').ondblclick = (e) => { const r = e.target.closest('[data-p]'); if (r) editPendingNote(Number(r.dataset.p)); };
   $('#clearBtn').onclick = async () => { if (S.pending.length && await confirmBox('Tüm eklenen ürünler silinsin mi?')) { S.pending = []; S.pendingSel = -1; renderPending(); } };
   $('#minusBtn').onclick = () => {
