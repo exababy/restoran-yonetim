@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Restoran POS</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="pos">
+<div id="app" hidden>
+  <aside id="left">
+    <div class="tabs">
+      <button class="tab active" data-view="masa">Masa</button>
+      <button class="tab" data-view="satis">Satış</button>
+    </div>
+    <div id="leftList" class="left-list"></div>
+    <div class="left-bottom">
+      <input id="findInput" class="find-input" placeholder="Masa / müşteri">
+      <button id="findBtn" class="find-btn">BUL</button>
+      <button id="drawerBtn" class="drawer-btn">Çekmece Aç</button>
+      <div id="clock" class="clock">00:00</div>
+      <div class="brand"><b>Adisyon</b>PRO<span id="conn" class="conn" title="Sunucu bağlantısı"></span></div>
+      <button id="optionsBtn" class="options-btn"><span>🔧</span> Seçenekler</button>
+    </div>
+  </aside>
+
+  <main id="center">
+    <div id="grid" class="grid"></div>
+  </main>
+
+  <section id="details">
+    <div class="details-tab"><span id="detailsTitle">Adisyon Detayları</span><button id="servedBtn" class="served-btn" hidden>🔔 Servis Edildi</button></div>
+    <div class="details-body">
+      <table class="details-table">
+        <thead><tr><th class="c-user">Kullan...</th><th>Açıklama</th><th class="c-copy">Kopyala</th><th class="c-price">B.Fiyat</th><th class="c-total">Toplam</th></tr></thead>
+        <tbody id="detailsRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="right">
+    <div id="mults" class="mults">
+      <button data-m="0.5">0,5</button><button data-m="1.5">1,5</button><button data-m="1" class="active">1</button>
+      <button data-m="2">2</button><button data-m="3">3</button><button data-m="4">4</button>
+    </div>
+    <div class="right-main">
+      <div class="pending-col">
+        <div class="cashier-row">
+          <div><div id="cashierName" class="cashier-name">Kasiyer</div>
+            <label class="free-chk"><input type="checkbox" id="freeChk"> Bedelsiz</label></div>
+          <button id="alarmBtn" class="alarm-btn">ALARM</button>
+        </div>
+        <div class="pending-box">
+          <div class="pending-head"><span>Açıklama</span><span>Ad.</span><span>Tutar</span></div>
+          <div id="pendingRows" class="pending-rows"></div>
+          <button id="customerBtn" class="customer-btn">Müşteri Seç</button>
+          <div class="pending-foot">
+            <label class="noprint-chk"><input type="checkbox" id="noPrintChk"> Yazdırma !</label>
+            <span id="pendingTotal">0, 0 TL</span>
+          </div>
+        </div>
+      </div>
+      <div class="side-btns">
+        <button id="clearBtn" class="sb sb-x" title="Tümünü temizle">✕</button>
+        <button id="minusBtn" class="sb sb-minus" title="Adet azalt">—</button>
+        <button id="guestsBtn" class="sb sb-people" title="Kişi sayısı">👥</button>
+        <button id="lockBtn" class="sb sb-lock" title="Kilitle / Kullanıcı değiştir">🔒</button>
+        <button id="timeBtn" class="sb sb-time" title="Açık masalar ve süreleri">SAAT</button>
+        <button id="upBtn" class="sb sb-arrow" title="Yukarı">▲</button>
+        <button id="downBtn" class="sb sb-arrow" title="Aşağı">▼</button>
+        <button id="delBtn" class="sb sb-del" title="Satırı sil">SİL</button>
+      </div>
+    </div>
+    <div class="save-row">
+      <button id="cancelBtn" class="big-btn btn-cancel"><span class="ic">✕</span> Vazgeç</button>
+      <button id="saveBtn" class="big-btn btn-save"><span class="ic">✔</span> Kaydet</button>
+      <button id="noteBtn" class="note-btn" title="Adisyon notu">📄</button>
+    </div>
+  </section>
+
+  <section id="actions">
+    <div class="act-grid">
+      <button id="payBtn" class="act act-pay">Ödeme</button>
+      <button id="printBtn" class="act act-print">Yazdır</button>
+      <button id="editBtn" class="act act-blue">Düzenle</button>
+      <button id="moveBtn" class="act act-blue">Taşı</button>
+      <button id="discountBtn" class="act act-blue">İndirim</button>
+      <button id="voidBtn" class="act act-void">İptal</button>
+    </div>
+    <div class="info-grid">
+      <div class="info-h">Masa Açılış</div><div class="info-h">Süre</div>
+      <div class="info-v" id="infoOpen">00.00.0000 - 00:00</div><div class="info-v" id="infoOpenDur">00:00</div>
+      <div class="info-h">Son Sipariş</div><div class="info-h">Süre</div>
+      <div class="info-v" id="infoLast">00.00.0000 - 00:00</div><div class="info-v" id="infoLastDur">00:00</div>
+      <div class="info-h dark">Toplam</div><div class="info-h">Ön Ödeme</div>
+      <div class="info-v dark" id="infoTotal">0,00 TL</div><div class="info-v" id="infoPaid">0,00 TL</div>
+    </div>
+    <div class="guests">
+      <div id="guestCount" class="guest-count">0</div>
+      <div class="guest-ic">👥</div>
+      <button id="guestPlus" class="guest-btn">+</button>
+      <button id="guestMinus" class="guest-btn">—</button>
+    </div>
+  </section>
+</div>
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

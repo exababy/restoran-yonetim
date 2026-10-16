@@ -1,0 +1,12 @@
+{
+  "name": "restoran-yonetim",
+  "version": "1.0.0",
+  "description": "Restoran adisyon ve kasa yönetim sistemi (POS) - masa, paket servis, garson el terminali, mutfak ekranı, raporlar",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --no-warnings server/server.js",
+    "test": "node --no-warnings --test test/*.test.js"
+  }
+}
